@@ -1,0 +1,48 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>io.fixprotocol.conga</groupId>
+	<artifactId>conga-parent</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<description>Demonstration of FIX semantics over web protocols</description>
+	<name>${project.groupId}:${project.artifactId}</name>
+	<organization>
+		<name>FIX Trading Community</name>
+		<url>https://www.fixtrading.org/</url>
+	</organization>
+	<inceptionYear>2018</inceptionYear>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<java.version>10</java.version>
+		<jetty.version>9.4.10.v20180503</jetty.version>
+		<junit.version>4.12</junit.version>
+	</properties>
+
+	<modules>
+		<module>conga-server</module>
+		<module>conga-client</module>
+		<module>conga-common-sbe</module>
+	</modules>
+
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>versions-maven-plugin</artifactId>
+				<version>2.2</version>
+			</plugin>
+		</plugins>
+	</build>
+</project>

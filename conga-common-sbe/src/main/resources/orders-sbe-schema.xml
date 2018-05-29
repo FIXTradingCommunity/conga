@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe" id="100" version="0" package="orders" byteOrder="littleEndian"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://fixprotocol.io/2016/sbe file:///C:/Users/donme.DESKTOP-KUJCNKS/GitHub/fix-simple-binary-encoding/v1-0-STANDARD/resources/sbe.xsd">
+	<types>
+		<type name="id" primitiveType="char" length="8"/>
+		<enum name="sideEnum" encodingType="char">
+			<validValue name="Buy">1</validValue>
+			<validValue name="Sell">2</validValue>
+		</enum>
+		<enum name="ordTypeEnum" encodingType="char">
+			<validValue name="Market">1</validValue>
+			<validValue name="Limit">2</validValue>
+		</enum>
+		<enum name="TimeUnit" encodingType="uint8">
+			<validValue name="second">0</validValue>
+			<validValue name="millisecond">3</validValue>
+			<validValue name="microsecond">6</validValue>
+			<validValue name="nanosecond">9</validValue>
+		</enum>
+		<enum name="ordStatusEnum" encodingType="char">
+			<validValue name="New">0</validValue>
+			<validValue name="PartiallyFilled">1</validValue>
+			<validValue name="Filled">2</validValue>
+			<validValue name="DoneForDay">3</validValue>
+			<validValue name="Canceled">4</validValue>
+			<validValue name="PendingCancel">6</validValue>
+			<validValue name="Stopped">7</validValue>
+			<validValue name="Rejected">8</validValue>
+			<validValue name="Suspended">9</validValue>
+			<validValue name="PendingNew">A</validValue>
+			<validValue name="Calculated">B</validValue>
+			<validValue name="Expired">C</validValue>
+			<validValue name="AcceptedForBidding">D</validValue>
+			<validValue name="PendingReplace">E</validValue>
+		</enum>
+		<enum name="execTypeEnum" encodingType="char">
+			<validValue name="New">0</validValue>
+			<validValue name="DoneForDay">3</validValue>
+			<validValue name="Canceled">4</validValue>
+			<validValue name="PendingCancel">6</validValue>
+			<validValue name="Stopped">7</validValue>
+			<validValue name="Rejected">8</validValue>
+			<validValue name="Suspended">9</validValue>
+			<validValue name="PendingNew">A</validValue>
+			<validValue name="Calculated">B</validValue>
+			<validValue name="Expired">C</validValue>
+			<validValue name="Restated">D</validValue>
+			<validValue name="PendingReplace">E</validValue>
+			<validValue name="Trade">F</validValue>
+		</enum>
+		<enum name="cxlRejReasonEnum" encodingType="uint8">
+			<validValue name="TooLateToCancel">0</validValue>
+			<validValue name="UnknownOrder">1</validValue>
+			<validValue name="Other">99</validValue>
+		</enum>
+		<composite name="UTCTimestampNanos" description="UTC timestamp with nanosecond precision">
+			<type name="time" primitiveType="uint64"/>
+			<type name="unit" primitiveType="uint8" presence="constant" valueRef="TimeUnit.nanosecond"/>
+		</composite>
+		<composite name="qty">
+			<type name="mantissa" primitiveType="int32"/>
+			<type name="exponent" primitiveType="int8" presence="constant">0</type>
+		</composite>
+		<composite name="money">
+			<type name="mantissa" primitiveType="int32"/>
+			<type name="exponent" primitiveType="int8" presence="constant">-2</type>
+		</composite>
+		<composite name="groupSizeEncoding">
+			<type name="blockLength" primitiveType="uint16"/>
+			<type name="numInGroup" primitiveType="uint16"/>
+		</composite>
+		<composite name="messageHeader">
+			<type name="blockLength" primitiveType="uint16"/>
+			<type name="templateId" primitiveType="uint16"/>
+			<type name="schemaId" primitiveType="uint16"/>
+			<type name="version" primitiveType="uint16"/>
+		</composite>
+	</types>
+	<sbe:message name="NewOrderSingle" id="14" semanticType="D">
+		<field name="ClOrdId" id="11" type="id" presence="required"/>
+		<field name="Symbol" id="55" type="id" presence="required"/>
+		<field name="Side" id="54" type="sideEnum" presence="required"/>
+		<field name="TransactTime" id="60" type="UTCTimestampNanos" presence="required" semanticType="UTCTimestamp"/>
+		<field name="OrderQty" id="38" type="qty" presence="required" semanticType="Qty"/>
+		<field name="OrdType" id="40" type="ordTypeEnum" presence="required"/>
+		<field name="Price" id="44" type="money" description="Required if OrdType=Limit" semanticType="Price"/>
+	</sbe:message>
+	<sbe:message name="OrderCancelRequest" id="16" semanticType="F">
+		<field name="ClOrdId" id="11" type="id" presence="required"/>
+		<field name="Symbol" id="55" type="id" presence="required"/>
+		<field name="Side" id="54" type="sideEnum" presence="required"/>
+		<field name="TransactTime" id="60" type="UTCTimestampNanos" presence="required" semanticType="UTCTimestamp"/>
+	</sbe:message>
+	<sbe:message name="OrderCancelReject" id="10" semanticType="9">
+		<field name="OrderId" id="37" type="id" presence="required"/>
+		<field name="ClOrdId" id="11" type="id" presence="required"/>
+		<field name="OrdStatus" id="39" type="ordStatusEnum" presence="required"/>
+		<field name="CxlRejReason" id="102" type="cxlRejReasonEnum" presence="required"/>
+		<field name="TransactTime" id="60" type="UTCTimestampNanos" semanticType="UTCTimestamp"/>
+	</sbe:message>
+	<sbe:message name="ExecutionReport" id="9" semanticType="8">
+		<field name="OrderId" id="37" type="id" presence="required"/>
+		<field name="ClOrdId" id="11" type="id"/>
+		<field name="ExecId" id="17" type="id" presence="required"/>
+		<field name="ExecType" id="150" type="execTypeEnum" presence="required"/>
+		<field name="OrdStatus" id="39" type="ordStatusEnum" presence="required"/>
+		<field name="Symbol" id="55" type="id" presence="required"/>
+		<field name="Side" id="54" type="sideEnum" presence="required"/>
+		<field name="LeavesQty" id="151" type="qty" presence="required" semanticType="Qty"/>
+		<field name="CumQty" id="14" type="qty" presence="required" semanticType="Qty"/>
+		<field name="TransactTime" id="60" type="UTCTimestampNanos" semanticType="UTCTimestamp"/>
+		<group name="FillsGrp" id="5">
+			<field name="FillPx" id="1364" type="money" semanticType="Price"/>
+			<field name="FillQty" id="1365" type="qty" semanticType="Qty"/>
+		</group>
+	</sbe:message>
+</sbe:messageSchema>
