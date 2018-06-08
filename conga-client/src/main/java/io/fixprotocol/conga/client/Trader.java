@@ -16,8 +16,11 @@
 package io.fixprotocol.conga.client;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 
@@ -76,6 +79,7 @@ public class Trader implements AutoCloseable {
   private final MutableRequestMessageFactory requestFactory =
       new SbeMutableRequestMessageFactory(bufferSupplier);
   private final RingBufferSupplier ringBuffer;
+  private int timeoutSeconds;
 
   public Trader(String host) throws URISyntaxException {
     this(host, DEFAULT_PORT, DEFAULT_PATH, DEFAULT_TIMEOUT_SECONDS);
@@ -85,9 +89,11 @@ public class Trader implements AutoCloseable {
     this(host, port, path, DEFAULT_TIMEOUT_SECONDS);
   }
 
-  public Trader(String host, int port, String path, int timeoutSeconds) {
-    ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
-    endpoint = new ClientEndpoint(ringBuffer, host, port, path, timeoutSeconds);
+  public Trader(String host, int port, String path, int timeoutSeconds) throws URISyntaxException {
+    this.timeoutSeconds = timeoutSeconds;
+    this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
+    final URI uri = ClientEndpoint.createUri(host, port, path);
+    this.endpoint = new ClientEndpoint(ringBuffer, uri, timeoutSeconds);
   }
 
   public void close() {
@@ -126,14 +132,19 @@ public class Trader implements AutoCloseable {
 
   /**
    * Send an order or cancel request
+   * 
    * @param message
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws InterruptedException if the current thread is interrupted
-   * @throws IOException if an I/O error occurs 
+   * @throws IOException if an I/O error occurs
    */
   public void send(MutableMessage message) throws Exception {
-    endpoint.send(message.toBuffer());
-    message.release();
+    try {
+      CompletableFuture<ByteBuffer> future = endpoint.send(message.toBuffer());
+      future.get(timeoutSeconds, TimeUnit.SECONDS);
+    } finally {
+      message.release();
+    }
   }
 
   public void open(MessageListener listener) throws Exception {

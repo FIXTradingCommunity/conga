@@ -123,7 +123,9 @@ public class Exchange implements AutoCloseable {
     if (null != hostName) {
       this.host = hostName;
     }
-    this.port = port;
+    if (port != 0) {
+      this.port = port;
+    }
     if (contextPath != null) {
       this.contextPath = contextPath;
     }

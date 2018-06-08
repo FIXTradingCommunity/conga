@@ -17,13 +17,15 @@ package io.fixprotocol.conga.client.io;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
@@ -43,18 +45,18 @@ public class ClientEndpoint implements AutoCloseable {
 
   private static final String WEBSOCKET_SCHEME = "wss";
 
-  private static void throwCause(ExecutionException e) throws Exception {
-    Throwable cause = e.getCause();
-    if (e instanceof Exception) {
-      throw (Exception) cause;
-    } else {
-      throw new RuntimeException(cause);
-    }
+  /**
+   * Create a WebSocket URI
+   * 
+   * @param host remote host
+   * @param port remote port
+   * @param path URI path
+   * @return a URI
+   * @throws URISyntaxException if a URI syntax error occurs
+   */
+  public static URI createUri(String host, int port, String path) throws URISyntaxException {
+    return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
   }
-
-  private final String host;
-  private final ReentrantLock lock = new ReentrantLock();
-  private boolean isOpen = false;
 
   /**
    * 
@@ -62,6 +64,7 @@ public class ClientEndpoint implements AutoCloseable {
    * only handles binary application messages.
    */
   private final WebSocket.Listener listener = new WebSocket.Listener() {
+
     public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer src, MessagePart part) {
       webSocket.request(1);
 
@@ -75,25 +78,16 @@ public class ClientEndpoint implements AutoCloseable {
 
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
       // WebSocket implementation automatically sends close response
-      lock.lock();
-      try {
-        isOpen = false;
-        ClientEndpoint.this.webSocket = null;
-        return null;
-      } finally {
-        lock.unlock();
-      }
+      webSocket.request(1);
+      ClientEndpoint.this.webSocketRef.set(null);
+      return null;
     }
 
     public void onError(WebSocket webSocket, Throwable error) {
       // the session is already torn down; clean up the reference
-      lock.lock();
-      try {
-        isOpen = false;
-        error.printStackTrace();
-      } finally {
-        lock.unlock();
-      }
+      webSocket.request(1);
+      error.printStackTrace();
+      ClientEndpoint.this.webSocketRef.set(null);
     }
 
     public void onOpen(WebSocket webSocket) {
@@ -105,41 +99,37 @@ public class ClientEndpoint implements AutoCloseable {
       return null;
     }
   };
-  private String path;
-
-  private int port;
+  
   private RingBufferSupplier ringBuffer;
   private long timeoutSeconds;
-  private WebSocket webSocket = null;
+  private final URI uri;
+  private AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
+  private ByteBuffer pong = ByteBuffer.allocateDirect(1024);
 
   /**
    * Construct a WebSocket client endpoint
    * 
-   * @param ringBuffer
-   * @param host
-   * @param port
-   * @param path
-   * @param timeoutSeconds2
+   * @param ringBuffer buffer to queue incoming events
+   * @param uri WebSocket URI of the remote server
+   * @param timeoutSeconds timeout of open and send operations
    */
-  public ClientEndpoint(RingBufferSupplier ringBuffer, String host, int port, String path,
-      int timeoutSeconds) {
+  public ClientEndpoint(RingBufferSupplier ringBuffer, URI uri, int timeoutSeconds)
+      throws URISyntaxException {
     this.ringBuffer = ringBuffer;
+    this.uri = uri;
     this.timeoutSeconds = timeoutSeconds;
-    this.host = host;
-    this.port = port;
-    this.path = path;
+  }
+  
+  public void setPong(byte [] src) {
+    pong.put(src);
+    pong.flip();
   }
 
   @Override
   public void close() throws Exception {
-    lock.lock();
-    try {
-      isOpen = false;
+    final WebSocket webSocket = webSocketRef.get();
+    if (webSocket != null) {
       webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(timeoutSeconds, TimeUnit.SECONDS);
-    } catch (ExecutionException e) {
-      throwCause(e);
-    } finally {
-      lock.unlock();
     }
   }
 
@@ -165,20 +155,9 @@ public class ClientEndpoint implements AutoCloseable {
    * 
    */
   public void open() throws Exception {
-    lock.lock();
-    try {
-      if (isOpen) {
-        return;
-      }
-      URI uri = new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
-      webSocket = HttpClient.newHttpClient().newWebSocketBuilder().subprotocols("binary")
-          .connectTimeout(Duration.ofSeconds(timeoutSeconds)).buildAsync(uri, listener).get();
-      isOpen = true;
-    } catch (ExecutionException e) {
-      throwCause(e);
-    } finally {
-      lock.unlock();
-    }
+    webSocketRef.compareAndSet(null,
+        HttpClient.newHttpClient().newWebSocketBuilder().subprotocols("binary")
+            .connectTimeout(Duration.ofSeconds(timeoutSeconds)).buildAsync(uri, listener).get());
   }
 
   /**
@@ -186,64 +165,38 @@ public class ClientEndpoint implements AutoCloseable {
    * 
    * @param data The message consists of bytes from the buffer's position to its limit. Upon normal
    *        completion the buffer will have no remaining bytes.
+   * @return 
    * @throws TimeoutException if the operation fails to complete in a timeout period
+   * @throws ExecutionException if other exceptions occurred
    * @throws InterruptedException if the current thread is interrupted
    * @throws IOException if an I/O error occurs or the WebSocket is not open
    */
-  public void send(ByteBuffer data) throws Exception {
-    lock.lock();
-    try {
-      if (!isOpen) {
-        throw new IOException("Socket not open");
-      }
-      webSocket.sendBinary(data, true).get(timeoutSeconds, TimeUnit.SECONDS);
-    } catch (ExecutionException e) {
-      throwCause(e);
-    } finally {
-      lock.unlock();
+  public CompletableFuture<ByteBuffer> send(ByteBuffer data) throws Exception {
+    final WebSocket webSocket = webSocketRef.get();
+    if (webSocket != null) {
+      CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
+      return future.thenCompose(w -> CompletableFuture.completedFuture(data));
+    } else {
+      throw new IOException("WebSocket not open");
     }
   }
 
-  /**
-   * 
-   * @throws InterruptedException
-   * @throws TimeoutException
-   * @throws IOException
-   */
-  void ping() throws Exception {
-    lock.lock();
-    try {
-      if (!isOpen) {
-        throw new IOException("Socket not open");
-      }
-      ByteBuffer message = null;
-      webSocket.sendPing(message).get(timeoutSeconds, TimeUnit.SECONDS);
-    } catch (ExecutionException e) {
-      throwCause(e);
-    } finally {
-      lock.unlock();
-    }
-  }
 
   /**
-   * 
-   * @throws InterruptedException
-   * @throws TimeoutException
-   * @throws IOException
+   * Send WebSocket pong message
+   * @throws TimeoutException if the operation fails to complete in a timeout period
+   * @throws ExecutionException if other exceptions occurred
+   * @throws InterruptedException if the current thread is interrupted
+   * @throws IOException if an I/O error occurs or the WebSocket is not open
    */
   void pong() throws Exception {
-    lock.lock();
-    try {
-      if (!isOpen) {
-        throw new IOException("Socket not open");
-      }
-      ByteBuffer message = null;
-      webSocket.sendPong(message).get(timeoutSeconds, TimeUnit.SECONDS);
-    } catch (ExecutionException e) {
-      throwCause(e);
-    } finally {
-      lock.unlock();
+    final WebSocket webSocket = webSocketRef.get();
+    if (webSocket != null) {
+      webSocket.sendPong(pong).get(timeoutSeconds, TimeUnit.SECONDS);
+    } else {
+      throw new IOException("WebSocket not open");
     }
+
   }
 
 }
