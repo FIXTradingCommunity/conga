@@ -17,6 +17,11 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>io.fixprotocol.conga</groupId>
+			<artifactId>conga-common</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>uk.co.real-logic</groupId>
 			<artifactId>sbe-tool</artifactId>
 			<version>${real-logic.version}</version>

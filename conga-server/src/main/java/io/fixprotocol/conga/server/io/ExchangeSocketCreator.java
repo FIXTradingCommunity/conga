@@ -22,7 +22,7 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
-import io.fixprotocol.conga.server.session.ExchangeSessions;
+import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
  * WebSocket creator only accepts requests for binary subprotocol
@@ -35,12 +35,12 @@ import io.fixprotocol.conga.server.session.ExchangeSessions;
 public class ExchangeSocketCreator implements WebSocketCreator {
 
   private final RingBufferSupplier ringBuffer;
-  private final ExchangeSessions sessions;
+  private final ServerSessions sessions;
 
   /**
    * 
    */
-  public ExchangeSocketCreator(ExchangeSessions sessions, RingBufferSupplier ringBuffer) {
+  public ExchangeSocketCreator(ServerSessions sessions, RingBufferSupplier ringBuffer) {
     this.sessions = sessions;
     this.ringBuffer = ringBuffer;
   }

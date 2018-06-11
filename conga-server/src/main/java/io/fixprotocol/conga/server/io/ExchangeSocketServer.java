@@ -30,7 +30,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
-import io.fixprotocol.conga.server.session.ExchangeSessions;
+import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
  * @author Don Mendelson
@@ -50,7 +50,7 @@ public class ExchangeSocketServer {
    *
    */
   public static final class Builder {
-    public ExchangeSessions sessions;
+    public ServerSessions sessions;
     private String host = "localhost";
     private String keyManagerPassword = null;
     private String keyStorePassword;
@@ -96,7 +96,7 @@ public class ExchangeSocketServer {
       return this;
     }
 
-    public Builder sessions(ExchangeSessions sessions) {
+    public Builder sessions(ServerSessions sessions) {
       this.sessions = sessions;
       return this;
     }
@@ -113,7 +113,7 @@ public class ExchangeSocketServer {
   private final int port;
   private final RingBufferSupplier ringBuffer;
   private final Server server = new Server();
-  private final ExchangeSessions sessions;
+  private final ServerSessions sessions;
   private final List<Handler> webSocketHandlerList = new ArrayList<>();
 
   private ExchangeSocketServer(Builder builder) {

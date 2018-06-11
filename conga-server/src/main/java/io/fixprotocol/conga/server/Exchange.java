@@ -33,8 +33,8 @@ import io.fixprotocol.conga.messages.RequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeRequestMessageFactory;
 import io.fixprotocol.conga.server.io.ExchangeSocketServer;
-import io.fixprotocol.conga.server.session.ExchangeSessionFactory;
-import io.fixprotocol.conga.server.session.ExchangeSessions;
+import io.fixprotocol.conga.server.session.BinarySessionFactory;
+import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
  * @author Don Mendelson
@@ -111,7 +111,7 @@ public class Exchange implements AutoCloseable {
   private final BufferSupplier outgoingBufferSupplier = new BufferPool();
   private int port = DEFAULT_PORT;
   private ExchangeSocketServer server = null;
-  private final ExchangeSessions sessions = new ExchangeSessions(new ExchangeSessionFactory());
+  private final ServerSessions sessions = new ServerSessions(new BinarySessionFactory());
 
   /**
    * Construct new exchange server.

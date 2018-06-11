@@ -27,7 +27,7 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
-import io.fixprotocol.conga.server.session.ExchangeSessions;
+import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
  * Binary WebSocket to communicate with an exchange client
@@ -53,7 +53,7 @@ public class BinaryExchangeSocket {
    * @param principal
    * 
    */
-  public BinaryExchangeSocket(ExchangeSessions sessions, RingBufferSupplier ringBuffer, String principal) {
+  public BinaryExchangeSocket(ServerSessions sessions, RingBufferSupplier ringBuffer, String principal) {
     this.ringBuffer = ringBuffer;
     this.principal = principal;
     fixSession = sessions.getSession(principal);

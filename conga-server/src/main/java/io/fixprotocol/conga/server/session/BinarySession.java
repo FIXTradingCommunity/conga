@@ -25,7 +25,7 @@ import io.fixprotocol.conga.session.Session;
  * @author Don Mendelson
  *
  */
-public class ExchangeSession extends Session {
+public class BinarySession extends Session {
 
   private BinaryExchangeSocket transport;
   

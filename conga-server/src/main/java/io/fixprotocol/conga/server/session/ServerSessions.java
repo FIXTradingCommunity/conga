@@ -15,17 +15,31 @@
 
 package io.fixprotocol.conga.server.session;
 
-import io.fixprotocol.conga.session.SessionFactory;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * Collection of FIX sessions
+ * 
  * @author Don Mendelson
  *
  */
-public class ExchangeSessionFactory implements SessionFactory {
+public class ServerSessions {
 
-  @Override
-  public ExchangeSession newInstance() {
-    return new ExchangeSession();
+  private final BinarySessionFactory factory;
+  private final Map<String, BinarySession> sessions = new ConcurrentHashMap<>();
+
+  public ServerSessions(BinarySessionFactory factory) {
+    this.factory = factory;
+  }
+
+  public BinarySession getSession(String id) {
+    BinarySession session = sessions.get(id);
+    if (session == null) {
+      session = factory.newInstance();
+      sessions.put(id, session);
+    }
+    return session;
   }
 
 }
