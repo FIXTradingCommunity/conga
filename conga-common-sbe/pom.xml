@@ -12,7 +12,6 @@
 
 	<properties>
 		<real-logic.version>1.8.1</real-logic.version>
-		<disruptor.version>3.4.2</disruptor.version>
 	</properties>
 
 	<dependencies>
@@ -25,11 +24,6 @@
 			<groupId>uk.co.real-logic</groupId>
 			<artifactId>sbe-tool</artifactId>
 			<version>${real-logic.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.lmax</groupId>
-			<artifactId>disruptor</artifactId>
-			<version>${disruptor.version}</version>
 		</dependency>
 	</dependencies>
 
