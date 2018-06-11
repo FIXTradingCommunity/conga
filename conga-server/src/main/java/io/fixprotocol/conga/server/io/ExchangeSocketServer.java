@@ -25,17 +25,12 @@ import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.SslConnectionFactory;
-import org.eclipse.jetty.server.handler.ContextHandlerCollection;
-import org.eclipse.jetty.server.handler.DefaultHandler;
-import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.eclipse.jetty.websocket.server.WebSocketHandler;
-import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.server.session.ExchangeSessions;
 
 /**
  * @author Don Mendelson
@@ -55,19 +50,25 @@ public class ExchangeSocketServer {
    *
    */
   public static final class Builder {
+    public ExchangeSessions sessions;
+    private String host = "localhost";
     private String keyManagerPassword = null;
     private String keyStorePassword;
     private String keyStorePath;
-    private RingBufferSupplier ringBuffer;
-    private String host = "localhost";
     private int port = 8443;
-    
+    private RingBufferSupplier ringBuffer;
+
     private Builder() {
-    
+
     }
-    
+
     public ExchangeSocketServer build() {
       return new ExchangeSocketServer(this);
+    }
+
+    public Builder host(String host) {
+      this.host = host;
+      return this;
     }
 
     public Builder keyManagerPassword(String keyManagerPassword) {
@@ -85,18 +86,18 @@ public class ExchangeSocketServer {
       return this;
     }
 
+    public Builder port(int port) {
+      this.port = port;
+      return this;
+    }
+
     public Builder ringBufferSupplier(RingBufferSupplier ringBuffer) {
       this.ringBuffer = ringBuffer;
       return this;
     }
 
-    public Builder host(String host) {
-      this.host = host;
-      return this;
-    }
-
-    public Builder port(int port) {
-      this.port = port;
+    public Builder sessions(ExchangeSessions sessions) {
+      this.sessions = sessions;
       return this;
     }
   }
@@ -105,13 +106,14 @@ public class ExchangeSocketServer {
     return new Builder();
   }
 
+  private final String host;
   private final String keyManagerPassword;
   private final String keyStorePassword;
   private final String keyStorePath;
+  private final int port;
   private final RingBufferSupplier ringBuffer;
   private final Server server = new Server();
-  private final String host;
-  private final int port;
+  private final ExchangeSessions sessions;
   private final List<Handler> webSocketHandlerList = new ArrayList<>();
 
   private ExchangeSocketServer(Builder builder) {
@@ -121,6 +123,7 @@ public class ExchangeSocketServer {
     this.ringBuffer = builder.ringBuffer;
     this.host = builder.host;
     this.port = builder.port;
+    this.sessions = builder.sessions;
   }
 
   public void init() {
@@ -145,12 +148,11 @@ public class ExchangeSocketServer {
     sslConnector.setHost(host);
     sslConnector.setPort(port);
     server.addConnector(sslConnector);
-    
-    ServletContextHandler context = new ServletContextHandler(
-        ServletContextHandler.SESSIONS);
-    ServletHolder servletHolder = new ServletHolder(new ExchangeServlet(ringBuffer));
+
+    ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+    ServletHolder servletHolder = new ServletHolder(new ExchangeServlet(sessions, ringBuffer));
     context.addServlet(servletHolder, "/trade/*");
-    //context.addServlet(DefaultServlet.class, "/");
+    // context.addServlet(DefaultServlet.class, "/");
     server.setHandler(context);
   }
 

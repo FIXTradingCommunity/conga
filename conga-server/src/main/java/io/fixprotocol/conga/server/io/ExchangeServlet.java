@@ -19,6 +19,7 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.server.session.ExchangeSessions;
 
 /**
  * @author Don Mendelson
@@ -28,14 +29,16 @@ public class ExchangeServlet extends WebSocketServlet {
 
   private static final long serialVersionUID = -357978763515258850L;
   private final RingBufferSupplier ringBuffer;
+  private final ExchangeSessions sessions;
   
-  public ExchangeServlet(RingBufferSupplier ringBuffer) {
+  public ExchangeServlet(ExchangeSessions sessions, RingBufferSupplier ringBuffer) {
+    this.sessions = sessions;
     this.ringBuffer = ringBuffer;
   }
 
   @Override
   public void configure(WebSocketServletFactory factory) {
-    factory.setCreator(new ExchangeSocketCreator(ringBuffer));
+    factory.setCreator(new ExchangeSocketCreator(sessions, ringBuffer));
   }
 
 }

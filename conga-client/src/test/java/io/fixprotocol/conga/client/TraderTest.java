@@ -46,7 +46,7 @@ public class TraderTest {
     @Override
     public void onMessage(Message message) {
       count++;
-      System.out.println(message.toString());
+      //System.out.println(message.toString());
     }
 
     public int getCount() {
@@ -110,10 +110,12 @@ public class TraderTest {
     order2.setTransactTime(Instant.now());
     trader.send(order2);
     order2.release();
-    
+
     Thread.sleep(1000);
     
     assertEquals(3, listener.getCount());
+    
+    System.out.println(trader.toString());
   }
 
 }

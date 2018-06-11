@@ -17,8 +17,6 @@ package io.fixprotocol.conga.server.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
@@ -29,6 +27,7 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.server.session.ExchangeSessions;
 
 /**
  * Binary WebSocket to communicate with an exchange client
@@ -45,22 +44,24 @@ import io.fixprotocol.conga.buffer.RingBufferSupplier;
 @WebSocket
 public class BinaryExchangeSocket {
 
-  private static final Map<String, Session> sessions = new HashMap<>();
   private final String principal;
   private final RingBufferSupplier ringBuffer;
+  private Session webSocketSession;
+  private io.fixprotocol.conga.session.Session fixSession;
 
   /**
    * @param principal
    * 
    */
-  public BinaryExchangeSocket(RingBufferSupplier ringBuffer, String principal) {
+  public BinaryExchangeSocket(ExchangeSessions sessions, RingBufferSupplier ringBuffer, String principal) {
     this.ringBuffer = ringBuffer;
     this.principal = principal;
+    fixSession = sessions.getSession(principal);
   }
 
   @OnWebSocketClose
   public void onClose(Session session, int statusCode, String reason) {
-    sessions.remove(principal);
+    this.fixSession.disconnected();
   }
 
   @OnWebSocketError
@@ -82,14 +83,17 @@ public class BinaryExchangeSocket {
 
   @OnWebSocketConnect
   public void onOpen(Session session) {
-    // don't replace an existing session; could be a problem if session does not close properly
-    sessions.putIfAbsent(principal, session);
+    this.webSocketSession = session;
+    this.fixSession.connected(this);
   }
 
-  public static void send(String principal, ByteBuffer buffer) throws IOException {
-    Session session = sessions.get(principal);
-    if (null != session) {
-      session.getRemote().sendBytes(buffer);
-    }
+  public void send(ByteBuffer buffer) throws IOException {
+    // synchronous send
+    webSocketSession.getRemote().sendBytes(buffer);
+  }
+  
+  public void close() {
+    // code for normal closure
+    webSocketSession.close(1000, "");
   }
 }

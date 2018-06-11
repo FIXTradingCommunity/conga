@@ -99,12 +99,12 @@ public class ClientEndpoint implements AutoCloseable {
       return null;
     }
   };
-  
+
+  private ByteBuffer pong = ByteBuffer.allocateDirect(1024);
   private RingBufferSupplier ringBuffer;
   private long timeoutSeconds;
   private final URI uri;
   private AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
-  private ByteBuffer pong = ByteBuffer.allocateDirect(1024);
 
   /**
    * Construct a WebSocket client endpoint
@@ -118,11 +118,6 @@ public class ClientEndpoint implements AutoCloseable {
     this.ringBuffer = ringBuffer;
     this.uri = uri;
     this.timeoutSeconds = timeoutSeconds;
-  }
-  
-  public void setPong(byte [] src) {
-    pong.put(src);
-    pong.flip();
   }
 
   @Override
@@ -165,7 +160,7 @@ public class ClientEndpoint implements AutoCloseable {
    * 
    * @param data The message consists of bytes from the buffer's position to its limit. Upon normal
    *        completion the buffer will have no remaining bytes.
-   * @return 
+   * @return
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws ExecutionException if other exceptions occurred
    * @throws InterruptedException if the current thread is interrupted
@@ -175,15 +170,27 @@ public class ClientEndpoint implements AutoCloseable {
     final WebSocket webSocket = webSocketRef.get();
     if (webSocket != null) {
       CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
-      return future.thenCompose(w -> CompletableFuture.completedFuture(data));
+      return future.thenCompose(w -> {
+        return CompletableFuture.completedFuture(data);
+      });
     } else {
       throw new IOException("WebSocket not open");
     }
   }
 
 
+
+  @Override
+  public String toString() {
+    StringBuilder builder = new StringBuilder();
+    builder.append("ClientEndpoint [timeoutSeconds=").append(timeoutSeconds).append(", uri=")
+        .append(uri).append(", webSocket=").append(webSocketRef.get()).append("]");
+    return builder.toString();
+  }
+
   /**
    * Send WebSocket pong message
+   * 
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws ExecutionException if other exceptions occurred
    * @throws InterruptedException if the current thread is interrupted
@@ -197,6 +204,12 @@ public class ClientEndpoint implements AutoCloseable {
       throw new IOException("WebSocket not open");
     }
 
+  }
+
+
+  void setPong(byte[] src) {
+    pong.put(src);
+    pong.flip();
   }
 
 }

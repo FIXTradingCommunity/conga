@@ -22,6 +22,7 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.server.session.ExchangeSessions;
 
 /**
  * WebSocket creator only accepts requests for binary subprotocol
@@ -34,11 +35,13 @@ import io.fixprotocol.conga.buffer.RingBufferSupplier;
 public class ExchangeSocketCreator implements WebSocketCreator {
 
   private final RingBufferSupplier ringBuffer;
+  private final ExchangeSessions sessions;
 
   /**
    * 
    */
-  public ExchangeSocketCreator(RingBufferSupplier ringBuffer) {
+  public ExchangeSocketCreator(ExchangeSessions sessions, RingBufferSupplier ringBuffer) {
+    this.sessions = sessions;
     this.ringBuffer = ringBuffer;
   }
 
@@ -50,7 +53,7 @@ public class ExchangeSocketCreator implements WebSocketCreator {
     for (String subprotocol : request.getSubProtocols()) {
       if ("binary".equals(subprotocol)) {
         response.setAcceptedSubProtocol(subprotocol);
-        return new BinaryExchangeSocket(ringBuffer, source);
+        return new BinaryExchangeSocket(sessions, ringBuffer, source);
       }
     }
 

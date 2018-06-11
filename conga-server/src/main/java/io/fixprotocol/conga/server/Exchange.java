@@ -15,7 +15,6 @@
 
 package io.fixprotocol.conga.server;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -25,11 +24,17 @@ import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 import io.fixprotocol.conga.match.MatchEngine;
-import io.fixprotocol.conga.messages.*;
+import io.fixprotocol.conga.messages.Message;
+import io.fixprotocol.conga.messages.MessageException;
+import io.fixprotocol.conga.messages.MutableMessage;
+import io.fixprotocol.conga.messages.NewOrderSingle;
+import io.fixprotocol.conga.messages.OrderCancelRequest;
+import io.fixprotocol.conga.messages.RequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeRequestMessageFactory;
-import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
 import io.fixprotocol.conga.server.io.ExchangeSocketServer;
+import io.fixprotocol.conga.server.session.ExchangeSessionFactory;
+import io.fixprotocol.conga.server.session.ExchangeSessions;
 
 /**
  * @author Don Mendelson
@@ -37,48 +42,12 @@ import io.fixprotocol.conga.server.io.ExchangeSocketServer;
  */
 public class Exchange implements AutoCloseable {
 
-  public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
   public static final String DEFAULT_HOST = "localhost";
   public static final int DEFAULT_PORT = 8025;
+  public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
 
   private static final Object monitor = new Object();
-  
-  private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = new BiConsumer<>() {
 
-    @Override
-    public void accept(String source, ByteBuffer buffer) {
-      List<MutableMessage> responses = Collections.emptyList();
-      try {
-        Message message = messageFactory.wrap(buffer);
-        if (message instanceof NewOrderSingle) {
-          responses = matchEngine.onOrder(source, (NewOrderSingle) message);
-        } else if (message instanceof OrderCancelRequest) {
-          responses = matchEngine.onCancelRequest(source, (OrderCancelRequest) message);
-        } else {
-          // Unknown message type
-        }
-      } catch (MessageException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      
-      for (MutableMessage response : responses) {
-        try {
-          final ByteBuffer outgoingBuffer = response.toBuffer();
-          BinaryExchangeSocket.send(response.getSource(), outgoingBuffer);
-          response.release();
-        } catch (IOException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
-        }
-      }
-    }
-    
-  };
-  private final RingBufferSupplier incomingRingBuffer;
-  private final MatchEngine matchEngine;
-  private final RequestMessageFactory messageFactory = new SbeRequestMessageFactory();
-  
   /**
    * @param args
    * @throws Exception if WebSocket server fails to start
@@ -104,17 +73,50 @@ public class Exchange implements AutoCloseable {
     }
   }
 
-  private String host = DEFAULT_HOST;
-  private int port = DEFAULT_PORT;
   private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
-  private ExchangeSocketServer server = null;
+  private String host = DEFAULT_HOST;
+  private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = new BiConsumer<>() {
+
+    @Override
+    public void accept(String source, ByteBuffer buffer) {
+      List<MutableMessage> responses = Collections.emptyList();
+      try {
+        sessions.getSession(source).messageReceived();
+        Message message = messageFactory.wrap(buffer);
+        if (message instanceof NewOrderSingle) {
+          responses = matchEngine.onOrder(source, (NewOrderSingle) message);
+        } else if (message instanceof OrderCancelRequest) {
+          responses = matchEngine.onCancelRequest(source, (OrderCancelRequest) message);
+        } else {
+          // Unknown message type
+        }
+      } catch (MessageException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+
+      for (MutableMessage response : responses) {
+        final ByteBuffer outgoingBuffer = response.toBuffer();
+        sessions.getSession(response.getSource()).send(outgoingBuffer);
+        response.release();
+      }
+    }
+
+  };
+  private final RingBufferSupplier incomingRingBuffer;
+
+  private final MatchEngine matchEngine;
+
+  private final RequestMessageFactory messageFactory = new SbeRequestMessageFactory();
   private final BufferSupplier outgoingBufferSupplier = new BufferPool();
+  private int port = DEFAULT_PORT;
+  private ExchangeSocketServer server = null;
+  private final ExchangeSessions sessions = new ExchangeSessions(new ExchangeSessionFactory());
 
   /**
    * Construct new exchange server.
    *
-   * @param hostName hostName of the server. If {@code null}, then {@link #DEFAULT_HOST} is
-   *        used.
+   * @param hostName hostName of the server. If {@code null}, then {@link #DEFAULT_HOST} is used.
    * @param port port of the server. When provided value is {@code 0}, default port
    *        ({@value #DEFAULT_PORT}) will be used, when {@code -1}, ephemeral port number will be
    *        used.
@@ -151,9 +153,9 @@ public class Exchange implements AutoCloseable {
     incomingRingBuffer.start();
     String keyStorePath = "selfsigned.pkcs";
     String keyStorePassword = "storepassword";
-    server =
-        ExchangeSocketServer.builder().ringBufferSupplier(incomingRingBuffer)
-        .host(host).port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).build();
+    server = ExchangeSocketServer.builder().ringBufferSupplier(incomingRingBuffer).host(host)
+        .port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).sessions(sessions)
+        .build();
     server.run();
   }
 

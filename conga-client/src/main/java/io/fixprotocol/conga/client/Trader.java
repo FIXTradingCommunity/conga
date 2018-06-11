@@ -38,11 +38,15 @@ import io.fixprotocol.conga.messages.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
+import io.fixprotocol.conga.session.Session;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
- * 
- * Session layer: WebSocket client
+ * <p>
+ * Assumption: Trader has 1:1 relationship with session and transport instances.
+ * <p>
+ * Session/transport layer: WebSocket client over TLS
+ * <p>
  * Presentation layer: Simple Binary Encoding (SBE)
  * @author Don Mendelson
  *
@@ -61,26 +65,28 @@ public class Trader implements AutoCloseable {
     // TODO Auto-generated method stub
 
   }
-
+  
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
   private MessageListener messageListener = null;
+  private final MutableRequestMessageFactory requestFactory =
+      new SbeMutableRequestMessageFactory(bufferSupplier);
+  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
+  private final RingBufferSupplier ringBuffer;
+  private final Session session = new Session();
+  private final int timeoutSeconds;
+  
 
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
       Message message = responseFactory.wrap(buffer);
+      session.messageReceived();
       messageListener.onMessage(message);
     } catch (MessageException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
   };
-  private final MutableRequestMessageFactory requestFactory =
-      new SbeMutableRequestMessageFactory(bufferSupplier);
-  private final RingBufferSupplier ringBuffer;
-  private int timeoutSeconds;
-
   public Trader(String host) throws URISyntaxException {
     this(host, DEFAULT_PORT, DEFAULT_PATH, DEFAULT_TIMEOUT_SECONDS);
   }
@@ -130,6 +136,12 @@ public class Trader implements AutoCloseable {
     return requestFactory.getOrderCancelRequest();
   }
 
+  public void open(MessageListener listener) throws Exception {
+    this.messageListener = listener;
+    ringBuffer.start();
+    endpoint.open();
+  }
+
   /**
    * Send an order or cancel request
    * 
@@ -142,14 +154,17 @@ public class Trader implements AutoCloseable {
     try {
       CompletableFuture<ByteBuffer> future = endpoint.send(message.toBuffer());
       future.get(timeoutSeconds, TimeUnit.SECONDS);
+      session.messageSent();
     } finally {
       message.release();
     }
   }
 
-  public void open(MessageListener listener) throws Exception {
-    this.messageListener = listener;
-    ringBuffer.start();
-    endpoint.open();
+  @Override
+  public String toString() {
+    StringBuilder builder = new StringBuilder();
+    builder.append("Trader [session=").append(session).append(", endpoint=").append(endpoint)
+        .append(", timeoutSeconds=").append(timeoutSeconds).append("]");
+    return builder.toString();
   }
 }
