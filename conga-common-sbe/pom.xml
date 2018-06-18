@@ -73,6 +73,36 @@
 			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>1.6.0</version>
+				<executions>
+					<execution>
+						<id>generate-fixp</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>java</goal>
+						</goals>
+						<configuration>
+							<mainClass>uk.co.real_logic.sbe.SbeTool</mainClass>
+							<classpathScope>compile</classpathScope>
+							<commandlineArgs>${project.build.resources[0].directory}/SBEschemaForFIXP.xml</commandlineArgs>
+							<systemProperties>
+								<systemProperty>
+									<key>sbe.output.dir</key>
+									<value>${project.build.directory}/generated-sources/java</value>
+								</systemProperty>
+								<systemProperty>
+									<key>sbe.target.namespace</key>
+									<value>io.fixprotocol.conga.sbe.messages.fixp</value>
+								</systemProperty>
+							</systemProperties>
+							<workingDirectory>${project.build.directory}/generated-sources/java</workingDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>build-helper-maven-plugin</artifactId>
 				<version>3.0.0</version>
 				<executions>

@@ -15,17 +15,22 @@
 
 package io.fixprotocol.conga.session;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 
 /**
+ * Abstract FIXP session, independent of encoding
+ * 
  * @author Don Mendelson
  */
-public class Session {
+public abstract class Session {
 
   private AtomicBoolean connected = new AtomicBoolean();
-  private AtomicInteger messagesReceived = new AtomicInteger();
-  private AtomicInteger messagesSent = new AtomicInteger();
+  private AtomicLong nextSeqNoReceived = new AtomicLong(1L);
+  private AtomicLong nextSeqNoSent = new AtomicLong(1L);  
 
   /**
    * The underlying transport was connected
@@ -48,25 +53,60 @@ public class Session {
     return connected.compareAndSet(true, false);
   }
 
-  public int getMessagesReceived() {
-    return messagesReceived.get();
+  public long getNextSeqNoReceived() {
+    return nextSeqNoReceived.get();
   }
 
-  public int getMessagesSent() {
-    return messagesSent.get();
+  public long getNextSeqNoSent() {
+    return nextSeqNoSent.get();
   }
 
   public boolean isConnected() {
     return connected.get();
   }
 
-  public int messageReceived() {
-    return messagesReceived.incrementAndGet();
+  public long messageReceived() {
+    return nextSeqNoReceived.incrementAndGet();
   }
 
-  public int messageSent() {
-    return messagesSent.incrementAndGet();
+  public long messageSent() {
+    return nextSeqNoSent.incrementAndGet();
   }
 
+  /**
+   * Send an application message
+   * @param buffer buffer containing a message
+   * @return the sequence number of the sent message or {@code 0} if an error occurs
+   * @throws IOException if an IO error occurs
+   * @throws InterruptedException if the operation is interruped before completion
+   * @throws IllegalStateException if the transport is not connected
+   */
+  public long sendApplicationMessage(ByteBuffer buffer) throws IOException, InterruptedException {
+    long seqNo = 0;
+    try {
+      if (isConnected()) {
+        doSendMessage(buffer);
+        seqNo =  messageSent();
+      } else {
+        throw new IllegalStateException("Not connected");
+      }
+    } catch (IOException e) {
+      disconnected();
+      throw e;
+    }
+    return seqNo;
+  }
+
+  public void sendHeartbeat() {
+    try {
+      doSendHeartbeat(getNextSeqNoSent());
+    } catch (IOException | InterruptedException e) {
+      disconnected();
+    }
+  }
+  
+  protected abstract long doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException;
+
+  protected abstract void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException;
 
 }

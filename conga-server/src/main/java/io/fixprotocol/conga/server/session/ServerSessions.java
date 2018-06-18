@@ -26,15 +26,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServerSessions {
 
-  private final BinarySessionFactory factory;
-  private final Map<String, BinarySession> sessions = new ConcurrentHashMap<>();
+  private final ServerSessionFactory factory;
+  private final Map<String, ServerSession> sessions = new ConcurrentHashMap<>();
 
-  public ServerSessions(BinarySessionFactory factory) {
+  public ServerSessions(ServerSessionFactory factory) {
     this.factory = factory;
   }
 
-  public BinarySession getSession(String id) {
-    BinarySession session = sessions.get(id);
+  public ServerSession getSession(String id) {
+    ServerSession session = sessions.get(id);
     if (session == null) {
       session = factory.newInstance();
       sessions.put(id, session);

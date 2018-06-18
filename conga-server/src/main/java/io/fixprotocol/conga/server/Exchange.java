@@ -15,6 +15,7 @@
 
 package io.fixprotocol.conga.server;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +34,7 @@ import io.fixprotocol.conga.messages.RequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeRequestMessageFactory;
 import io.fixprotocol.conga.server.io.ExchangeSocketServer;
-import io.fixprotocol.conga.server.session.BinarySessionFactory;
+import io.fixprotocol.conga.server.session.ServerSessionFactory;
 import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
@@ -97,21 +98,25 @@ public class Exchange implements AutoCloseable {
 
       for (MutableMessage response : responses) {
         final ByteBuffer outgoingBuffer = response.toBuffer();
-        sessions.getSession(response.getSource()).send(outgoingBuffer);
+        try {
+          sessions.getSession(response.getSource()).sendApplicationMessage(outgoingBuffer);
+        } catch (IOException | InterruptedException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
         response.release();
       }
     }
 
   };
+  
   private final RingBufferSupplier incomingRingBuffer;
-
   private final MatchEngine matchEngine;
-
   private final RequestMessageFactory messageFactory = new SbeRequestMessageFactory();
   private final BufferSupplier outgoingBufferSupplier = new BufferPool();
   private int port = DEFAULT_PORT;
   private ExchangeSocketServer server = null;
-  private final ServerSessions sessions = new ServerSessions(new BinarySessionFactory());
+  private final ServerSessions sessions = new ServerSessions(new ServerSessionFactory());
 
   /**
    * Construct new exchange server.

@@ -19,8 +19,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 
@@ -28,6 +26,7 @@ import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 import io.fixprotocol.conga.client.io.ClientEndpoint;
+import io.fixprotocol.conga.client.session.ClientSession;
 import io.fixprotocol.conga.messages.Message;
 import io.fixprotocol.conga.messages.MessageException;
 import io.fixprotocol.conga.messages.MessageListener;
@@ -38,7 +37,6 @@ import io.fixprotocol.conga.messages.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
-import io.fixprotocol.conga.session.Session;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -73,7 +71,7 @@ public class Trader implements AutoCloseable {
       new SbeMutableRequestMessageFactory(bufferSupplier);
   private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
   private final RingBufferSupplier ringBuffer;
-  private final Session session = new Session();
+  private final ClientSession session = new ClientSession();
   private final int timeoutSeconds;
   
 
@@ -105,6 +103,7 @@ public class Trader implements AutoCloseable {
   public void close() {
     try {
       endpoint.close();
+      session.disconnected();
       ringBuffer.stop();
     } catch (Exception e) {
       // TODO Auto-generated catch block
@@ -140,21 +139,21 @@ public class Trader implements AutoCloseable {
     this.messageListener = listener;
     ringBuffer.start();
     endpoint.open();
+    session.connected(endpoint);
   }
 
   /**
    * Send an order or cancel request
    * 
    * @param message
+   * @return sequence number of the sent message
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws InterruptedException if the current thread is interrupted
    * @throws IOException if an I/O error occurs
    */
-  public void send(MutableMessage message) throws Exception {
+  public long send(MutableMessage message) throws IOException, InterruptedException{
     try {
-      CompletableFuture<ByteBuffer> future = endpoint.send(message.toBuffer());
-      future.get(timeoutSeconds, TimeUnit.SECONDS);
-      session.messageSent();
+      return session.sendApplicationMessage(message.toBuffer());
     } finally {
       message.release();
     }

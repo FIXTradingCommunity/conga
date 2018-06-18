@@ -97,8 +97,9 @@ public class TraderTest {
     order1.setSide(Side.Buy);
     order1.setSymbol("S1");
     order1.setTransactTime(Instant.now());
-    trader.send(order1);
+    long nextSeqNo = trader.send(order1);
     order1.release();
+    assertEquals(2, nextSeqNo);
     
     MutableNewOrderSingle order2 = trader.createOrder();
     order2.setClOrdId("C2");
@@ -108,14 +109,15 @@ public class TraderTest {
     order2.setSide(Side.Sell);
     order2.setSymbol("S1");
     order2.setTransactTime(Instant.now());
-    trader.send(order2);
+    nextSeqNo = trader.send(order2);
     order2.release();
-
+    assertEquals(3, nextSeqNo);
+    
     Thread.sleep(1000);
     
     assertEquals(3, listener.getCount());
     
-    System.out.println(trader.toString());
+    //System.out.println(trader.toString());
   }
 
 }

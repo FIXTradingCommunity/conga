@@ -94,13 +94,8 @@ public class ClientEndpoint implements AutoCloseable {
       webSocket.request(1);
     }
 
-    public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
-      webSocket.request(1);
-      return null;
-    }
   };
 
-  private ByteBuffer pong = ByteBuffer.allocateDirect(1024);
   private RingBufferSupplier ringBuffer;
   private long timeoutSeconds;
   private final URI uri;
@@ -178,38 +173,12 @@ public class ClientEndpoint implements AutoCloseable {
     }
   }
 
-
-
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append("ClientEndpoint [timeoutSeconds=").append(timeoutSeconds).append(", uri=")
         .append(uri).append(", webSocket=").append(webSocketRef.get()).append("]");
     return builder.toString();
-  }
-
-  /**
-   * Send WebSocket pong message
-   * 
-   * @throws TimeoutException if the operation fails to complete in a timeout period
-   * @throws ExecutionException if other exceptions occurred
-   * @throws InterruptedException if the current thread is interrupted
-   * @throws IOException if an I/O error occurs or the WebSocket is not open
-   */
-  void pong() throws Exception {
-    final WebSocket webSocket = webSocketRef.get();
-    if (webSocket != null) {
-      webSocket.sendPong(pong).get(timeoutSeconds, TimeUnit.SECONDS);
-    } else {
-      throw new IOException("WebSocket not open");
-    }
-
-  }
-
-
-  void setPong(byte[] src) {
-    pong.put(src);
-    pong.flip();
   }
 
 }

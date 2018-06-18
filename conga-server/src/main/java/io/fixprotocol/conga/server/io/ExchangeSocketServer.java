@@ -15,11 +15,7 @@
 
 package io.fixprotocol.conga.server.io;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.eclipse.jetty.http.HttpVersion;
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
@@ -114,7 +110,6 @@ public class ExchangeSocketServer {
   private final RingBufferSupplier ringBuffer;
   private final Server server = new Server();
   private final ServerSessions sessions;
-  private final List<Handler> webSocketHandlerList = new ArrayList<>();
 
   private ExchangeSocketServer(Builder builder) {
     this.keyStorePath = builder.keyStorePath;

@@ -21,11 +21,11 @@ import io.fixprotocol.conga.session.SessionFactory;
  * @author Don Mendelson
  *
  */
-public class BinarySessionFactory implements SessionFactory {
+public class ServerSessionFactory implements SessionFactory {
 
   @Override
-  public BinarySession newInstance() {
-    return new BinarySession();
+  public ServerSession newInstance() {
+    return new ServerSession();
   }
 
 }

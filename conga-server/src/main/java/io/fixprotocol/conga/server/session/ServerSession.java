@@ -19,18 +19,23 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
-import io.fixprotocol.conga.session.Session;
+import io.fixprotocol.conga.session.sbe.SbeSession;
 
 /**
+ * Server FIXP session
+ * 
  * @author Don Mendelson
  *
  */
-public class BinarySession extends Session {
+public class ServerSession extends SbeSession {
 
   private BinaryExchangeSocket transport;
-  
+
   @Override
   public boolean connected(Object transport) {
+    if (!(transport instanceof BinaryExchangeSocket)) {
+      throw new IllegalArgumentException("Unknown transport type");
+    }
     final boolean connected = super.connected(transport);
     if (connected) {
       this.transport = (BinaryExchangeSocket) transport;
@@ -44,16 +49,9 @@ public class BinarySession extends Session {
     }
   }
 
-  public void send(ByteBuffer buffer) {
-    try {
-      if (transport !=  null) {
-        transport.send(buffer);
-        messageSent();
-      }
-    } catch (IOException e) {
-      // TODO persist messages for recovery
-      e.printStackTrace();
-    }
+  @Override
+  protected void doSendMessage(ByteBuffer buffer) throws IOException {
+    transport.send(buffer);
   }
 
 }
