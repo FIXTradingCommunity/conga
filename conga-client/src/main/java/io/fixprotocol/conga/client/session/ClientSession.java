@@ -23,19 +23,12 @@ import io.fixprotocol.conga.client.io.ClientEndpoint;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 
 /**
- * @author donme
+ * @author Don Mendelson
  *
  */
 public class ClientSession extends SbeSession {
 
   private ClientEndpoint transport;
-
-  /**
-   * 
-   */
-  public ClientSession() {
-    // TODO Auto-generated constructor stub
-  }
 
   @Override
   public boolean connected(Object transport) {

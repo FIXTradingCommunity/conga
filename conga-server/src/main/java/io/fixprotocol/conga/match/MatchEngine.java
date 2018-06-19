@@ -104,7 +104,7 @@ public class MatchEngine {
     boolean found = false;
     if (null != orderBook) {
       var order = orderBook.removeOrder(cancel.getSide(), cancel.getClOrdId(), source);
-      if (order != null) {
+      if (null != order) {
         order.close();
         MutableExecutionReport executionReport = populateExecutionReportCanceled(source, order);
         responses.add(executionReport);
@@ -176,7 +176,7 @@ public class MatchEngine {
     if ((workingOrder.getLeavesQty() > 0) && (workingOrder.getOrdType() != OrdType.Market)) {
       orderBook.addOrder(workingOrder);
     }
-    if (workingOrder.getLeavesQty() > 0 && workingOrder.getOrdType() == OrdType.Market) {
+    if ((workingOrder.getLeavesQty() > 0) && (workingOrder.getOrdType() == OrdType.Market)) {
       workingOrder.close();
       MutableExecutionReport executionReport =
           populateExecutionReportTrade(workingOrder, fillQtys, fillPxs, OrdStatus.Canceled);

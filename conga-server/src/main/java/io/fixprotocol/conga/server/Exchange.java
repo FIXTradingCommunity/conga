@@ -34,8 +34,10 @@ import io.fixprotocol.conga.messages.RequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeRequestMessageFactory;
 import io.fixprotocol.conga.server.io.ExchangeSocketServer;
+import io.fixprotocol.conga.server.session.ServerSession;
 import io.fixprotocol.conga.server.session.ServerSessionFactory;
 import io.fixprotocol.conga.server.session.ServerSessions;
+import io.fixprotocol.conga.session.Session.MessageType;
 
 /**
  * @author Don Mendelson
@@ -80,41 +82,22 @@ public class Exchange implements AutoCloseable {
 
     @Override
     public void accept(String source, ByteBuffer buffer) {
-      List<MutableMessage> responses = Collections.emptyList();
-      try {
-        sessions.getSession(source).messageReceived();
-        Message message = messageFactory.wrap(buffer);
-        if (message instanceof NewOrderSingle) {
-          responses = matchEngine.onOrder(source, (NewOrderSingle) message);
-        } else if (message instanceof OrderCancelRequest) {
-          responses = matchEngine.onCancelRequest(source, (OrderCancelRequest) message);
-        } else {
-          // Unknown message type
-        }
-      } catch (MessageException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
 
-      for (MutableMessage response : responses) {
-        final ByteBuffer outgoingBuffer = response.toBuffer();
-        try {
-          sessions.getSession(response.getSource()).sendApplicationMessage(outgoingBuffer);
-        } catch (IOException | InterruptedException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
-        }
-        response.release();
+      final ServerSession session = sessions.getSession(source);
+      MessageType messageType = session.messageReceived(buffer);
+      switch (messageType) {
+        case APPLICATION:
+        handleApplicationMessage(source, buffer);
+        break;
       }
     }
-
   };
   
   private final RingBufferSupplier incomingRingBuffer;
   private final MatchEngine matchEngine;
-  private final RequestMessageFactory messageFactory = new SbeRequestMessageFactory();
   private final BufferSupplier outgoingBufferSupplier = new BufferPool();
   private int port = DEFAULT_PORT;
+  private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
   private ExchangeSocketServer server = null;
   private final ServerSessions sessions = new ServerSessions(new ServerSessionFactory());
 
@@ -130,7 +113,7 @@ public class Exchange implements AutoCloseable {
     if (null != hostName) {
       this.host = hostName;
     }
-    if (port != 0) {
+    if (0 != port) {
       this.port = port;
     }
     if (contextPath != null) {
@@ -152,6 +135,34 @@ public class Exchange implements AutoCloseable {
 
   public int getPort() {
     return port;
+  }
+
+  public void handleApplicationMessage(String source, ByteBuffer buffer) {
+    List<MutableMessage> responses = Collections.emptyList();
+    try {
+      Message message = requestMessageFactory.wrap(buffer);
+      if (message instanceof NewOrderSingle) {
+        responses = matchEngine.onOrder(source, (NewOrderSingle) message);
+      } else if (message instanceof OrderCancelRequest) {
+        responses = matchEngine.onCancelRequest(source, (OrderCancelRequest) message);
+      } else {
+        // Unknown message type
+      }
+    } catch (MessageException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
+    for (MutableMessage response : responses) {
+      final ByteBuffer outgoingBuffer = response.toBuffer();
+      try {
+        sessions.getSession(response.getSource()).sendApplicationMessage(outgoingBuffer);
+      } catch (IOException | InterruptedException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      response.release();
+    }
   }
 
   public void open() throws Exception {

@@ -35,7 +35,7 @@ public class ServerSessions {
 
   public ServerSession getSession(String id) {
     ServerSession session = sessions.get(id);
-    if (session == null) {
+    if (null == session) {
       session = factory.newInstance();
       sessions.put(id, session);
     }

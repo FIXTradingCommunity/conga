@@ -44,7 +44,7 @@ public class ServerSession extends SbeSession {
   }
 
   public void disconnect() {
-    if (transport !=  null) {
+    if (null != transport) {
       transport.close();
     }
   }

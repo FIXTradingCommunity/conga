@@ -88,7 +88,7 @@ public class BufferPool implements BufferSupplier {
   @Override
   public BufferSupply get() {
     BufferPoolSupply supply = pool.poll();
-    if (supply == null) {
+    if (null == supply) {
       supply = newInstance();
     }
     return supply;

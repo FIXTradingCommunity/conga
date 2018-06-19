@@ -96,10 +96,10 @@ public class ClientEndpoint implements AutoCloseable {
 
   };
 
-  private RingBufferSupplier ringBuffer;
+  private final RingBufferSupplier ringBuffer;
   private long timeoutSeconds;
   private final URI uri;
-  private AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
+  private final AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
 
   /**
    * Construct a WebSocket client endpoint
@@ -118,7 +118,7 @@ public class ClientEndpoint implements AutoCloseable {
   @Override
   public void close() throws Exception {
     final WebSocket webSocket = webSocketRef.get();
-    if (webSocket != null) {
+    if (null != webSocket) {
       webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(timeoutSeconds, TimeUnit.SECONDS);
     }
   }
@@ -165,9 +165,7 @@ public class ClientEndpoint implements AutoCloseable {
     final WebSocket webSocket = webSocketRef.get();
     if (webSocket != null) {
       CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
-      return future.thenCompose(w -> {
-        return CompletableFuture.completedFuture(data);
-      });
+      return future.thenCompose(w -> CompletableFuture.completedFuture(data));
     } else {
       throw new IOException("WebSocket not open");
     }

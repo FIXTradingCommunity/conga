@@ -20,7 +20,10 @@ import java.nio.ByteBuffer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
+import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.SequenceDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceEncoder;
 import io.fixprotocol.conga.session.Session;
 
@@ -28,25 +31,74 @@ import io.fixprotocol.conga.session.Session;
  * FIXP session with SBE encoding
  * <p>
  * Limitations: does not support multiplexing.
+ * 
  * @author Don Mendelson
  *
  */
 public abstract class SbeSession extends Session {
 
-  private final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-  private final SequenceEncoder sequenceEncoder = new SequenceEncoder();
+  private final UnsafeBuffer directBuffer = new UnsafeBuffer();
+  private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
+  private final ByteBuffer notAppliedBuffer = ByteBuffer.allocateDirect(32);
+  private final NotAppliedEncoder notAppliedEncoder = new NotAppliedEncoder();
+  private final UnsafeBuffer notAppliedMutableBuffer = new UnsafeBuffer();
   private final ByteBuffer sequenceBuffer = ByteBuffer.allocateDirect(16);
+  private final SequenceDecoder sequenceDecoder = new SequenceDecoder();
+  private final SequenceEncoder sequenceEncoder = new SequenceEncoder();
   private final UnsafeBuffer sequenceMutableBuffer = new UnsafeBuffer();
 
-  public SbeSession() {
+
+  protected SbeSession() {
+    final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
     sequenceMutableBuffer.wrap(sequenceBuffer);
     sequenceEncoder.wrapAndApplyHeader(sequenceMutableBuffer, 0, headerEncoder);
+    sequenceBuffer.position(headerEncoder.encodedLength() + sequenceEncoder.encodedLength());
+    notAppliedMutableBuffer.wrap(notAppliedBuffer);
+    notAppliedEncoder.wrapAndApplyHeader(notAppliedMutableBuffer, 0, headerEncoder);
+    notAppliedBuffer.position(headerEncoder.encodedLength() + notAppliedEncoder.encodedLength());
   }
-  
+
   @Override
-  protected long doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException {
+  protected void doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException {
     sequenceEncoder.nextSeqNo(nextSeqNo);
     doSendMessage(sequenceBuffer);
-    return nextSeqNo;
+  }
+
+  protected void doSendNotApplied(long fromSeqNo, long count)
+      throws IOException, InterruptedException {
+    notAppliedEncoder.fromSeqNo(fromSeqNo);
+    notAppliedEncoder.count(count);
+    doSendMessage(notAppliedBuffer);
+  }
+
+  @Override
+  protected MessageType getMessageType(ByteBuffer buffer) {
+    MessageType messageType = MessageType.IGNORE;
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    if (SequenceEncoder.SCHEMA_ID != headerDecoder.schemaId()) {
+      messageType = MessageType.APPLICATION;
+    } else {
+      int templateId = headerDecoder.templateId();
+      switch (templateId) {
+        case SequenceEncoder.TEMPLATE_ID:
+          messageType = MessageType.SEQUENCE;
+          break;
+        case NotAppliedEncoder.TEMPLATE_ID:
+          messageType = MessageType.NOT_APPLIED;
+          break;
+      }
+    }
+
+    return messageType;
+  }
+
+  @Override
+  protected long getNextSequenceNumber(ByteBuffer buffer) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    sequenceDecoder.wrap(directBuffer, headerDecoder.encodedLength(), headerDecoder.blockLength(),
+        headerDecoder.version());
+    return sequenceDecoder.nextSeqNo();
   }
 }

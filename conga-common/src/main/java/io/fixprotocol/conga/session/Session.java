@@ -28,9 +28,35 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public abstract class Session {
 
-  private AtomicBoolean connected = new AtomicBoolean();
-  private AtomicLong nextSeqNoReceived = new AtomicLong(1L);
-  private AtomicLong nextSeqNoSent = new AtomicLong(1L);  
+  public enum MessageType {
+    APPLICATION,
+    IGNORE,
+    NOT_APPLIED, 
+    SEQUENCE
+  }
+  private final AtomicBoolean connected = new AtomicBoolean();
+  private final AtomicLong nextSeqNoAccepted = new AtomicLong(1);
+  private final AtomicLong nextSeqNoReceived = new AtomicLong(1L);  
+
+  private final AtomicLong nextSeqNoSent = new AtomicLong(1L);
+
+  /**
+   * Returns sequence number of received application message
+   * Side effect: sequence number is incremented
+   * @return sequence number
+   */
+  public long applicationMessageReceived() {
+    return nextSeqNoReceived.getAndIncrement();
+  }
+
+  /**
+   * Returns sequence number of sent application message
+   * Side effect: sequence number is incremented
+   * @return sequence number
+   */
+  public long applicationMessageSent() {
+    return nextSeqNoSent.getAndIncrement();
+  }
 
   /**
    * The underlying transport was connected
@@ -65,12 +91,30 @@ public abstract class Session {
     return connected.get();
   }
 
-  public long messageReceived() {
-    return nextSeqNoReceived.incrementAndGet();
-  }
-
-  public long messageSent() {
-    return nextSeqNoSent.incrementAndGet();
+  /**
+   * @param buffer
+   */
+  public MessageType messageReceived(ByteBuffer buffer) {
+    MessageType messageType = getMessageType(buffer);
+    
+    long seqNo;
+    switch (messageType) {
+      case SEQUENCE:
+        sequenceMessageReceived(buffer);
+        break;
+      case APPLICATION:
+        seqNo = applicationMessageReceived();
+        if (nextSeqNoAccepted.compareAndSet(seqNo, seqNo)) {
+          nextSeqNoAccepted.incrementAndGet();
+        } else {
+          // Duplicate message received
+          messageType = MessageType.IGNORE;
+        }
+        break;
+      default:
+        break;
+    }
+    return messageType;
   }
 
   /**
@@ -78,7 +122,7 @@ public abstract class Session {
    * @param buffer buffer containing a message
    * @return the sequence number of the sent message or {@code 0} if an error occurs
    * @throws IOException if an IO error occurs
-   * @throws InterruptedException if the operation is interruped before completion
+   * @throws InterruptedException if the operation is interrupted before completion
    * @throws IllegalStateException if the transport is not connected
    */
   public long sendApplicationMessage(ByteBuffer buffer) throws IOException, InterruptedException {
@@ -86,7 +130,7 @@ public abstract class Session {
     try {
       if (isConnected()) {
         doSendMessage(buffer);
-        seqNo =  messageSent();
+        seqNo =  applicationMessageSent();
       } else {
         throw new IllegalStateException("Not connected");
       }
@@ -104,9 +148,26 @@ public abstract class Session {
       disconnected();
     }
   }
-  
-  protected abstract long doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException;
 
+  private void sequenceMessageReceived(ByteBuffer buffer) {
+    long newNextSeqNo = getNextSequenceNumber(buffer);
+    long prevNextSeqNo = nextSeqNoReceived.getAndSet(newNextSeqNo);
+    long accepted = nextSeqNoAccepted.get();
+    if (newNextSeqNo > accepted) {
+      try {
+        doSendNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo);
+        nextSeqNoAccepted.set(newNextSeqNo); 
+      } catch (IOException | InterruptedException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }
+  }
+
+  protected abstract void doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException;
   protected abstract void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException;
+  protected abstract void doSendNotApplied(long fromSeqNo, long count) throws IOException, InterruptedException;
+  protected abstract MessageType getMessageType(ByteBuffer buffer);
+  protected abstract long getNextSequenceNumber(ByteBuffer buffer);
 
 }

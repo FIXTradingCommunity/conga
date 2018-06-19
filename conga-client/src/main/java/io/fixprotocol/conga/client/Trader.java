@@ -37,6 +37,7 @@ import io.fixprotocol.conga.messages.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
+import io.fixprotocol.conga.session.Session.MessageType;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -72,19 +73,21 @@ public class Trader implements AutoCloseable {
   private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
   private final RingBufferSupplier ringBuffer;
   private final ClientSession session = new ClientSession();
-  private final int timeoutSeconds;
   
-
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
-      Message message = responseFactory.wrap(buffer);
-      session.messageReceived();
-      messageListener.onMessage(message);
+      if (MessageType.APPLICATION == session.messageReceived(buffer)) {
+        Message message = responseFactory.wrap(buffer);
+        messageListener.onMessage(message);
+      }
     } catch (MessageException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
   };
+
+
+  private final int timeoutSeconds;
   public Trader(String host) throws URISyntaxException {
     this(host, DEFAULT_PORT, DEFAULT_PATH, DEFAULT_TIMEOUT_SECONDS);
   }

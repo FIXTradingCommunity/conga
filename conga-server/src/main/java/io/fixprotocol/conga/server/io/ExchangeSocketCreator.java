@@ -49,7 +49,7 @@ public class ExchangeSocketCreator implements WebSocketCreator {
   public Object createWebSocket(ServletUpgradeRequest request, ServletUpgradeResponse response) {
     Principal principal = request.getUserPrincipal();
     String source;
-    source = null != principal ? principal.getName() : request.getRemoteAddress();
+    source = (null != principal) ? principal.getName() : request.getRemoteAddress();
     for (String subprotocol : request.getSubProtocols()) {
       if ("binary".equals(subprotocol)) {
         response.setAcceptedSubProtocol(subprotocol);

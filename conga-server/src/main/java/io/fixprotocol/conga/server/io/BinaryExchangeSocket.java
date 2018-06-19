@@ -47,7 +47,7 @@ public class BinaryExchangeSocket {
   private final String principal;
   private final RingBufferSupplier ringBuffer;
   private Session webSocketSession;
-  private io.fixprotocol.conga.session.Session fixSession;
+  private final io.fixprotocol.conga.session.Session fixSession;
 
   /**
    * @param principal

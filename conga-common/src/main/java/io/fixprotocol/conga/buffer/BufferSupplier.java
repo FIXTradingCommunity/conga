@@ -28,6 +28,7 @@ import java.util.function.Supplier;
  * @author Don Mendelson
  *
  */
+@FunctionalInterface
 public interface BufferSupplier extends Supplier<BufferSupplier.BufferSupply> {
 
   interface BufferSupply {

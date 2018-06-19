@@ -53,7 +53,7 @@ class MatchingOrderDecorator extends WorkingOrder {
   public BigDecimal getPrice() {
     if (OrdType.Market != getOrdType()) {
       return super.getPrice();
-    } else if (getSide() == Side.Buy) {
+    } else if (Side.Buy == getSide()) {
       return MAX_PRICE;
     } else {
       return MIN_PRICE;
