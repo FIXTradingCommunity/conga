@@ -73,7 +73,7 @@ public class TraderTest {
   @Before
   public void setUp() throws Exception {
     listener.reset();
-    trader = new Trader("localhost", 8025, "/trade", 30);
+    trader = new Trader("localhost", 8025, "/trade", 2);
     trader.open(listener );
   }
 
@@ -118,6 +118,11 @@ public class TraderTest {
     assertEquals(3, listener.getCount());
     
     //System.out.println(trader.toString());
+  }
+  
+  @Test
+  public void quiescent() throws InterruptedException {
+    Thread.sleep(10000);
   }
 
 }

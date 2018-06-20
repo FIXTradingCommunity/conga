@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
 import java.util.function.BiConsumer;
 
 import io.fixprotocol.conga.buffer.BufferPool;
@@ -56,7 +57,7 @@ public class Exchange implements AutoCloseable {
    * @throws Exception if WebSocket server fails to start
    */
   public static void main(String[] args) throws Exception {
-    try (Exchange exchange = new Exchange(null, 0, null)) {
+    try (Exchange exchange = new Exchange(null, 0, null, 2000L)) {
       exchange.open();
 
       new Thread(() -> {
@@ -87,19 +88,22 @@ public class Exchange implements AutoCloseable {
       MessageType messageType = session.messageReceived(buffer);
       switch (messageType) {
         case APPLICATION:
-        handleApplicationMessage(source, buffer);
-        break;
+          handleApplicationMessage(source, buffer);
+          break;
+        default:
+          break;
       }
     }
   };
-  
+
   private final RingBufferSupplier incomingRingBuffer;
   private final MatchEngine matchEngine;
   private final BufferSupplier outgoingBufferSupplier = new BufferPool();
   private int port = DEFAULT_PORT;
   private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
   private ExchangeSocketServer server = null;
-  private final ServerSessions sessions = new ServerSessions(new ServerSessionFactory());
+  private final ServerSessions sessions;
+  private Timer timer = new Timer("Server-timer", true);
 
   /**
    * Construct new exchange server.
@@ -108,8 +112,9 @@ public class Exchange implements AutoCloseable {
    * @param port port of the server. When provided value is {@code 0}, default port
    *        ({@value #DEFAULT_PORT}) will be used, when {@code -1}, ephemeral port number will be
    *        used.
+   * @param heartbeatInterval heartbeat interval in millis
    */
-  public Exchange(String hostName, int port, String contextPath) {
+  public Exchange(String hostName, int port, String contextPath, long heartbeatInterval) {
     if (null != hostName) {
       this.host = hostName;
     }
@@ -119,8 +124,10 @@ public class Exchange implements AutoCloseable {
     if (contextPath != null) {
       this.contextPath = contextPath;
     }
-    incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
-    matchEngine = new MatchEngine(new SbeMutableResponseMessageFactory(outgoingBufferSupplier));
+    this.incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
+    this.matchEngine =
+        new MatchEngine(new SbeMutableResponseMessageFactory(outgoingBufferSupplier));
+    this.sessions = new ServerSessions(new ServerSessionFactory(timer, heartbeatInterval));
   }
 
   @Override
@@ -155,11 +162,11 @@ public class Exchange implements AutoCloseable {
 
     for (MutableMessage response : responses) {
       final ByteBuffer outgoingBuffer = response.toBuffer();
+      final ServerSession session = sessions.getSession(response.getSource());
       try {
-        sessions.getSession(response.getSource()).sendApplicationMessage(outgoingBuffer);
-      } catch (IOException | InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        session.sendApplicationMessage(outgoingBuffer);
+      } catch (IOException | InterruptedException | IllegalStateException e) {
+        session.disconnected();
       }
       response.release();
     }

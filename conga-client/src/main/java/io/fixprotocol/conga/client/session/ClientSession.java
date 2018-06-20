@@ -17,6 +17,7 @@ package io.fixprotocol.conga.client.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
@@ -29,6 +30,10 @@ import io.fixprotocol.conga.session.sbe.SbeSession;
 public class ClientSession extends SbeSession {
 
   private ClientEndpoint transport;
+  
+  public ClientSession(Timer timer, long heartbeatInterval) {
+    super(timer, heartbeatInterval);
+  }
 
   @Override
   public boolean connected(Object transport) {
@@ -43,15 +48,25 @@ public class ClientSession extends SbeSession {
   }
 
   @Override
+  protected void doDisconnect() {
+    try {
+      transport.close();
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+
+  @Override
   protected void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException {
     try {
       transport.send(buffer).get();
-    } catch (InterruptedException e) {
+    } catch (InterruptedException | IllegalStateException | IOException e) {
       throw e;
     } catch (ExecutionException e) {
-     Throwable cause = e.getCause();
+      Throwable cause = e.getCause();
       if (cause instanceof IOException) {
-        throw (IOException)cause;
+        throw (IOException) cause;
       } else {
         throw new RuntimeException(cause);
       }

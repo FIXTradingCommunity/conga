@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 
@@ -72,11 +74,12 @@ public class Trader implements AutoCloseable {
       new SbeMutableRequestMessageFactory(bufferSupplier);
   private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
   private final RingBufferSupplier ringBuffer;
-  private final ClientSession session = new ClientSession();
-  
+  private final ClientSession session;
+  private final int timeoutSeconds;
+
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
-      if (MessageType.APPLICATION == session.messageReceived(buffer)) {
+      if (isApplicationMessage(buffer)) {
         Message message = responseFactory.wrap(buffer);
         messageListener.onMessage(message);
       }
@@ -85,13 +88,12 @@ public class Trader implements AutoCloseable {
       e.printStackTrace();
     }
   };
+  
 
-
-  private final int timeoutSeconds;
+  private Timer timer = new Timer("Client-timer", true);
   public Trader(String host) throws URISyntaxException {
     this(host, DEFAULT_PORT, DEFAULT_PATH, DEFAULT_TIMEOUT_SECONDS);
   }
-
   public Trader(String host, int port, String path) throws URISyntaxException {
     this(host, port, path, DEFAULT_TIMEOUT_SECONDS);
   }
@@ -101,6 +103,7 @@ public class Trader implements AutoCloseable {
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
     final URI uri = ClientEndpoint.createUri(host, port, path);
     this.endpoint = new ClientEndpoint(ringBuffer, uri, timeoutSeconds);
+    this.session = new ClientSession(timer , TimeUnit.SECONDS.toMillis(timeoutSeconds));
   }
 
   public void close() {
@@ -168,5 +171,9 @@ public class Trader implements AutoCloseable {
     builder.append("Trader [session=").append(session).append(", endpoint=").append(endpoint)
         .append(", timeoutSeconds=").append(timeoutSeconds).append("]");
     return builder.toString();
+  }
+
+  private boolean isApplicationMessage(ByteBuffer buffer) {
+    return MessageType.APPLICATION == session.messageReceived(buffer);
   }
 }

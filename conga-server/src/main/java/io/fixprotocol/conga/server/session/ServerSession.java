@@ -17,6 +17,7 @@ package io.fixprotocol.conga.server.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
 import io.fixprotocol.conga.session.sbe.SbeSession;
@@ -30,6 +31,10 @@ import io.fixprotocol.conga.session.sbe.SbeSession;
 public class ServerSession extends SbeSession {
 
   private BinaryExchangeSocket transport;
+
+  public ServerSession(Timer timer, long heartbeatInterval) {
+    super(timer, heartbeatInterval);
+  }
 
   @Override
   public boolean connected(Object transport) {
@@ -47,6 +52,11 @@ public class ServerSession extends SbeSession {
     if (null != transport) {
       transport.close();
     }
+  }
+
+  @Override
+  protected void doDisconnect() {
+    transport.close();
   }
 
   @Override

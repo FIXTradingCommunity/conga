@@ -17,6 +17,7 @@ package io.fixprotocol.conga.session.sbe;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
@@ -48,27 +49,28 @@ public abstract class SbeSession extends Session {
   private final UnsafeBuffer sequenceMutableBuffer = new UnsafeBuffer();
 
 
-  protected SbeSession() {
+  protected SbeSession(Timer timer, long heartbeatInterval) {
+    super(timer, heartbeatInterval);
     final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
     sequenceMutableBuffer.wrap(sequenceBuffer);
     sequenceEncoder.wrapAndApplyHeader(sequenceMutableBuffer, 0, headerEncoder);
-    sequenceBuffer.position(headerEncoder.encodedLength() + sequenceEncoder.encodedLength());
+    sequenceBuffer.limit(headerEncoder.encodedLength() + sequenceEncoder.encodedLength());
     notAppliedMutableBuffer.wrap(notAppliedBuffer);
     notAppliedEncoder.wrapAndApplyHeader(notAppliedMutableBuffer, 0, headerEncoder);
-    notAppliedBuffer.position(headerEncoder.encodedLength() + notAppliedEncoder.encodedLength());
+    notAppliedBuffer.limit(headerEncoder.encodedLength() + notAppliedEncoder.encodedLength());
   }
 
   @Override
   protected void doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException {
     sequenceEncoder.nextSeqNo(nextSeqNo);
-    doSendMessage(sequenceBuffer);
+    doSendMessage(sequenceBuffer.duplicate());
   }
 
   protected void doSendNotApplied(long fromSeqNo, long count)
       throws IOException, InterruptedException {
     notAppliedEncoder.fromSeqNo(fromSeqNo);
     notAppliedEncoder.count(count);
-    doSendMessage(notAppliedBuffer);
+    doSendMessage(notAppliedBuffer.duplicate());
   }
 
   @Override

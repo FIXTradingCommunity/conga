@@ -17,32 +17,73 @@ package io.fixprotocol.conga.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
  * Abstract FIXP session, independent of encoding
+ * <p>
+ * Limitation: does not support FIXP multiplexing. In other words, there is a 1:1 relationship
+ * between session and transport.
  * 
  * @author Don Mendelson
  */
 public abstract class Session {
 
   public enum MessageType {
-    APPLICATION,
-    IGNORE,
-    NOT_APPLIED, 
-    SEQUENCE
+    APPLICATION, IGNORE, NOT_APPLIED, SEQUENCE
   }
-  private final AtomicBoolean connected = new AtomicBoolean();
-  private final AtomicLong nextSeqNoAccepted = new AtomicLong(1);
-  private final AtomicLong nextSeqNoReceived = new AtomicLong(1L);  
 
+  private class HeartbeatDueTask extends TimerTask {
+
+    @Override
+    public void run() {
+      if (isHeartbeatDueToReceive()) {
+        doDisconnect();
+      }
+
+    }
+  }
+  private class HeartbeatSendTask extends TimerTask {
+
+    @Override
+    public void run() {
+      if (isHeartbeatDueToSend()) {
+        try {
+          doSendHeartbeat(nextSeqNoSent.get());
+        } catch (IOException | InterruptedException | IllegalStateException e) {
+          disconnected();
+        }
+      }
+
+    }
+  };
+
+  private final AtomicBoolean criticalSection = new AtomicBoolean();
+  private HeartbeatDueTask heartbeatDueTask;;
+  private final long heartbeatInterval;
+  private HeartbeatSendTask heartbeatSendTask;
+  private boolean isConnected = false;
+  private final AtomicBoolean isHeartbeatDueToReceive = new AtomicBoolean(true);
+  private final AtomicBoolean isHeartbeatDueToSend = new AtomicBoolean(true);
+  private final AtomicLong nextSeqNoAccepted = new AtomicLong(1);
+  private final AtomicLong nextSeqNoReceived = new AtomicLong(1L);
   private final AtomicLong nextSeqNoSent = new AtomicLong(1L);
+  private final Timer timer;
+
+
+  protected Session(Timer timer, long heartbeatInterval) {
+    this.timer = timer;
+    this.heartbeatInterval = heartbeatInterval;
+  }
 
   /**
-   * Returns sequence number of received application message
-   * Side effect: sequence number is incremented
+   * Returns sequence number of received application message Side effect: sequence number is
+   * incremented
+   * 
    * @return sequence number
    */
   public long applicationMessageReceived() {
@@ -50,8 +91,8 @@ public abstract class Session {
   }
 
   /**
-   * Returns sequence number of sent application message
-   * Side effect: sequence number is incremented
+   * Returns sequence number of sent application message Side effect: sequence number is incremented
+   * 
    * @return sequence number
    */
   public long applicationMessageSent() {
@@ -65,7 +106,25 @@ public abstract class Session {
    *         was already connected.
    */
   public boolean connected(Object transport) {
-    return connected.compareAndSet(false, true);
+    while (!criticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      if (!isConnected) {
+        // Give 10% margin
+        long heartbeatDueInterval = (heartbeatInterval * 11) / 10;
+        heartbeatDueTask = new HeartbeatDueTask();
+        timer.scheduleAtFixedRate(heartbeatDueTask, heartbeatDueInterval, heartbeatDueInterval);
+        heartbeatSendTask = new HeartbeatSendTask();
+        timer.scheduleAtFixedRate(heartbeatSendTask, heartbeatInterval, heartbeatInterval);
+        isConnected = true;
+        return true;
+      } else {
+        return false;
+      }
+    } finally {
+      criticalSection.compareAndSet(true, false);
+    }
   }
 
   /**
@@ -76,7 +135,21 @@ public abstract class Session {
    */
 
   public boolean disconnected() {
-    return connected.compareAndSet(true, false);
+    while (!criticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      if (isConnected) {
+        heartbeatDueTask.cancel();
+        heartbeatSendTask.cancel();
+        isConnected = false;
+        return true;
+      } else {
+        return false;
+      }
+    } finally {
+      criticalSection.compareAndSet(true, false);
+    }
   }
 
   public long getNextSeqNoReceived() {
@@ -88,15 +161,23 @@ public abstract class Session {
   }
 
   public boolean isConnected() {
-    return connected.get();
+    while (!criticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      return isConnected;
+    } finally {
+      criticalSection.compareAndSet(true, false);
+    }
   }
 
   /**
    * @param buffer
    */
   public MessageType messageReceived(ByteBuffer buffer) {
+    isHeartbeatDueToReceive.set(false);
     MessageType messageType = getMessageType(buffer);
-    
+
     long seqNo;
     switch (messageType) {
       case SEQUENCE:
@@ -119,6 +200,7 @@ public abstract class Session {
 
   /**
    * Send an application message
+   * 
    * @param buffer buffer containing a message
    * @return the sequence number of the sent message or {@code 0} if an error occurs
    * @throws IOException if an IO error occurs
@@ -130,7 +212,8 @@ public abstract class Session {
     try {
       if (isConnected()) {
         doSendMessage(buffer);
-        seqNo =  applicationMessageSent();
+        seqNo = applicationMessageSent();
+        isHeartbeatDueToSend.set(false);
       } else {
         throw new IllegalStateException("Not connected");
       }
@@ -141,12 +224,27 @@ public abstract class Session {
     return seqNo;
   }
 
+  /**
+   * Send a FIXP Sequence message
+   * <p>
+   * Design note: WebSocket has Ping/Pong messages for keep-alive. However, behavior is not well
+   * defined by the specification for frequency or content. Therefore, it was not overloaded for the
+   * purpose of idempotent message delivery.
+   */
   public void sendHeartbeat() {
     try {
       doSendHeartbeat(getNextSeqNoSent());
     } catch (IOException | InterruptedException e) {
       disconnected();
     }
+  }
+
+  private boolean isHeartbeatDueToReceive() {
+    return isHeartbeatDueToReceive.getAndSet(true);
+  }
+
+  private boolean isHeartbeatDueToSend() {
+    return isHeartbeatDueToSend.getAndSet(true);
   }
 
   private void sequenceMessageReceived(ByteBuffer buffer) {
@@ -156,18 +254,24 @@ public abstract class Session {
     if (newNextSeqNo > accepted) {
       try {
         doSendNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo);
-        nextSeqNoAccepted.set(newNextSeqNo); 
+        nextSeqNoAccepted.set(newNextSeqNo);
       } catch (IOException | InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        disconnected();
       }
     }
   }
 
+  protected abstract void doDisconnect();
+
   protected abstract void doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException;
+
   protected abstract void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException;
-  protected abstract void doSendNotApplied(long fromSeqNo, long count) throws IOException, InterruptedException;
+
+  protected abstract void doSendNotApplied(long fromSeqNo, long count)
+      throws IOException, InterruptedException;
+
   protected abstract MessageType getMessageType(ByteBuffer buffer);
+
   protected abstract long getNextSequenceNumber(ByteBuffer buffer);
 
 }
