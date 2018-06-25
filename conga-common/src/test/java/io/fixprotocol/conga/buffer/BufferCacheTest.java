@@ -71,7 +71,7 @@ public class BufferCacheTest {
     ListIterator<ByteBuffer> iter = cache.listIterator();
     assertTrue(iter.hasNext());
     ByteBuffer dest = iter.next();
-    String text = displayBuffer(dest);
+    //String text = displayBuffer(dest);
     assertEquals(src1, dest);
     dest = iter.next();
     assertEquals(src2, dest);
@@ -93,6 +93,43 @@ public class BufferCacheTest {
     cache.set(1, src3);
     ByteBuffer dest = cache.get(1);
     assertEquals(src3, dest);
+  }
+  
+  @Test
+  public void wrap() {
+    for (int i=0; i < 20; i++) {
+      ByteBuffer src = createBuffer(Integer.toString(i));
+      assertTrue(cache.add(src));
+    }
+    assertEquals(20, cache.size());
+    int i=4;
+    ListIterator<ByteBuffer> iter = cache.listIterator(i);
+    while (iter.hasNext()) {
+      ByteBuffer buffer = iter.next();
+      byte[] dst = new byte[buffer.remaining()];
+      buffer.get(dst );
+      int number = Integer.parseInt(new String(dst));
+      assertEquals(i, number);
+      i++;
+    }
+  }
+  
+  @Test(expected=IndexOutOfBoundsException.class)
+  public void belowMin() {
+    for (int i=0; i < 20; i++) {
+      ByteBuffer src = createBuffer(Integer.toString(i));
+      assertTrue(cache.add(src));
+    }
+    cache.get(3);
+  }
+  
+  @Test(expected=IndexOutOfBoundsException.class)
+  public void aboveMax() {
+    for (int i=0; i < 20; i++) {
+      ByteBuffer src = createBuffer(Integer.toString(i));
+      assertTrue(cache.add(src));
+    }
+    cache.get(20);
   }
 
   private ByteBuffer createBuffer(String text) {

@@ -16,7 +16,7 @@
 package io.fixprotocol.conga.buffer;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -224,15 +224,14 @@ public class BufferCache implements List<ByteBuffer> {
     }
   }
 
-  /*
-   * (non-Javadoc)
-   * 
-   * @see java.util.List#indexOf(java.lang.Object)
-   */
   @Override
   public int indexOf(Object o) {
-    // TODO Auto-generated method stub
-    return 0;
+    ListIterator<ByteBuffer> it = listIterator(getMinimumAvailableIndex());
+    while (it.hasNext()) {
+      if (o.equals(it.next()))
+        return it.previousIndex();
+    }
+    return -1;
   }
 
   @Override
@@ -245,15 +244,14 @@ public class BufferCache implements List<ByteBuffer> {
     return listIterator(0);
   }
 
-  /*
-   * (non-Javadoc)
-   * 
-   * @see java.util.List#lastIndexOf(java.lang.Object)
-   */
   @Override
   public int lastIndexOf(Object o) {
-    // TODO Auto-generated method stub
-    return 0;
+    ListIterator<ByteBuffer> it = listIterator(getMinimumAvailableIndex());
+    while (it.hasPrevious()) {
+      if (o.equals(it.previous()))
+        return it.nextIndex();
+    }
+    return -1;
   }
 
   @Override
@@ -317,30 +315,48 @@ public class BufferCache implements List<ByteBuffer> {
 
   @Override
   public List<ByteBuffer> subList(int fromIndex, int toIndex) {
-    // TODO Auto-generated method stub
-    return null;
+    if (fromIndex < getMinimumAvailableIndex() || toIndex > getMaximumAvailableIndex()) {
+      throw new IndexOutOfBoundsException();
+    }
+    List<ByteBuffer> array = new ArrayList<>(toIndex - fromIndex);
+    ListIterator<java.nio.ByteBuffer> iter = listIterator(fromIndex);
+    int j = 0;
+    while (iter.hasNext()) {
+      array.set(j, iter.next().duplicate());
+      j++;
+    }
+    for (; j < array.size(); j++) {
+      array.set(j, ByteBuffer.allocate(0));
+    }
+    return array;
   }
 
-  /*
-   * (non-Javadoc)
-   * 
-   * @see java.util.List#toArray()
-   */
   @Override
   public Object[] toArray() {
-    // TODO Auto-generated method stub
-    return null;
+    ByteBuffer[] array = new ByteBuffer[cache.length];
+    ListIterator<ByteBuffer> iter = listIterator(getMinimumAvailableIndex());
+    int j = 0;
+    while (iter.hasNext()) {
+      array[j] = iter.next().duplicate();
+      j++;
+    }
+    return array;
   }
 
-  /*
-   * (non-Javadoc)
-   * 
-   * @see java.util.List#toArray(java.lang.Object[])
-   */
-  @Override
+  @SuppressWarnings("unchecked")
   public <T> T[] toArray(T[] a) {
-    // TODO Auto-generated method stub
-    return null;
+    // public ByteBuffer[] toArray(ByteBuffer[] a) {
+    int minIndex = Math.max(getMinimumAvailableIndex(), getMaximumAvailableIndex() - a.length);
+    ListIterator<java.nio.ByteBuffer> iter = listIterator(minIndex);
+    int j = 0;
+    while (iter.hasNext()) {
+      a[j] = (T) iter.next().duplicate();
+      j++;
+    }
+    for (; j < a.length; j++) {
+      a[j] = (T) ByteBuffer.allocate(0);
+    }
+    return a;
   }
 
   private void copyBuffer(ByteBuffer src, ByteBuffer dest) {
@@ -360,7 +376,7 @@ public class BufferCache implements List<ByteBuffer> {
 
   private int getMinimumAvailableIndex() {
     if (maxIndex > cache.length) {
-      return maxIndex - cache.length;
+      return maxIndex - cache.length + 1;
     } else if (maxIndex >= 0) {
       return 0;
     } else {
