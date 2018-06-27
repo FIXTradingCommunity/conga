@@ -17,9 +17,9 @@ package io.fixprotocol.conga.server.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Timer;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
+import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 
 /**
@@ -32,16 +32,29 @@ public class ServerSession extends SbeSession {
 
   private BinaryExchangeSocket transport;
 
-  public ServerSession(Timer timer, long heartbeatInterval) {
-    super(timer, heartbeatInterval);
+  public static class Builder extends Session.Builder<ServerSession> {
+
+    @Override
+    public ServerSession build() {
+      return new ServerSession(this);
+    }
+    
+  }
+  
+  public static Builder builder() {
+    return new Builder();
+  }
+  
+  private ServerSession(Builder builder)  {
+    super(builder);
   }
 
   @Override
-  public boolean connected(Object transport) {
+  public boolean connected(Object transport, String principal) {
     if (!(transport instanceof BinaryExchangeSocket)) {
       throw new IllegalArgumentException("Unknown transport type");
     }
-    final boolean connected = super.connected(transport);
+    final boolean connected = super.connected(transport, principal);
     if (connected) {
       this.transport = (BinaryExchangeSocket) transport;
     }

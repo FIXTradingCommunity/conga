@@ -13,23 +13,24 @@
  *
  */
 
-package io.fixprotocol.conga.messages;
+package io.fixprotocol.conga.session;
 
 import java.nio.ByteBuffer;
 
 /**
- * Message factory for exchange responses
+ * Consumes application messages from a Session
  * 
  * @author Don Mendelson
  *
  */
-public interface ResponseMessageFactory {
+public interface SessionMessageConsumer {
+  
+  /**
+   * Consume an application message
+   * @param source a session identifier
+   * @param buffer holds a message to consume
+   * @param seqNo sequence number of the message
+   */
+  void accept(String source, ByteBuffer buffer, long seqNo);
 
-  Message wrap(ByteBuffer buffer) throws MessageException;
-  
-  OrderCancelReject getOrderCancelReject();
-  
-  ExecutionReport getExecutionReport();
-  
-  NotApplied getNotApplied();
 }

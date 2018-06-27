@@ -15,21 +15,12 @@
 
 package io.fixprotocol.conga.messages;
 
-import java.nio.ByteBuffer;
-
 /**
- * Message factory for exchange responses
- * 
  * @author Don Mendelson
  *
  */
-public interface ResponseMessageFactory {
-
-  Message wrap(ByteBuffer buffer) throws MessageException;
+public interface NotApplied {
   
-  OrderCancelReject getOrderCancelReject();
-  
-  ExecutionReport getExecutionReport();
-  
-  NotApplied getNotApplied();
+  long getFromSeqNo();
+  long getCount();
 }

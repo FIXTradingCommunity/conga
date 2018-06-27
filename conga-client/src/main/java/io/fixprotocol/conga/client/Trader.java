@@ -19,19 +19,22 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Timer;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 import io.fixprotocol.conga.client.io.ClientEndpoint;
 import io.fixprotocol.conga.client.session.ClientSession;
+import io.fixprotocol.conga.messages.ApplicationMessageConsumer;
 import io.fixprotocol.conga.messages.Message;
 import io.fixprotocol.conga.messages.MessageException;
-import io.fixprotocol.conga.messages.MessageListener;
 import io.fixprotocol.conga.messages.MutableMessage;
 import io.fixprotocol.conga.messages.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.MutableOrderCancelRequest;
@@ -39,7 +42,9 @@ import io.fixprotocol.conga.messages.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
-import io.fixprotocol.conga.session.Session.MessageType;
+import io.fixprotocol.conga.session.SessionMessageConsumer;
+import io.fixprotocol.conga.session.ProtocolViolationException;
+import io.fixprotocol.conga.session.Session;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -54,62 +59,138 @@ import io.fixprotocol.conga.session.Session.MessageType;
  */
 public class Trader implements AutoCloseable {
 
+  /**
+   * Builds an instance of {@code Trader}
+   * <p>
+   * Example:
+   * 
+   * <pre>
+   * Trader trader =
+   *     Trader.builder().host("1.2.3.4").port("567").build();
+   * </pre>
+   *
+   */
+  public static final class Builder {
+    
+    private static final String WEBSOCKET_SCHEME = "wss";
+    
+    private static URI createUri(String host, int port, String path) throws URISyntaxException {
+      return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
+    }
+    
+    private Consumer<Throwable> errorListener = null;
+    private String host = DEFAULT_HOST;
+    private ApplicationMessageConsumer messageListener = null;
+    private String path = DEFAULT_PATH;
+    private int port = DEFAULT_PORT;
+    private int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
+    private URI uri = null;
+
+    protected Builder() {
+
+    }
+
+    public Trader build() throws URISyntaxException {
+      if (this.uri == null) {
+        this.uri = createUri(host, port, path);
+      }
+
+      return new Trader(this);
+    }
+
+    public Builder errorListener(Consumer<Throwable> errorListener) {
+      this.errorListener = errorListener;
+      return this;
+    }
+
+    public Builder host(String host) {
+      this.host = host;
+      return this;
+    }
+
+    public Builder messageListener(ApplicationMessageConsumer messageListener) {
+      this.messageListener = messageListener;
+      return this;
+    }
+
+    public Builder path(String path) {
+      this.path = path;
+      return this;
+    }
+
+    public Builder port(int port) {
+      this.port = port;
+      return this;
+    }
+    
+    public Builder timeoutSeconds(int timeoutSeconds) {
+      this.timeoutSeconds = timeoutSeconds;
+      return this;
+    }
+
+    public Builder uri(URI uri) {
+      this.uri = uri;
+      return this;
+    }
+
+  }
   public static final String DEFAULT_HOST = "localhost";
   public static final String DEFAULT_PATH = "/trade";
-  public static final int DEFAULT_PORT = 443;
+  public static final int DEFAULT_PORT = 443;  
   public static final int DEFAULT_TIMEOUT_SECONDS = 30;
-
-  /**
-   * @param args
-   */
-  public static void main(String[] args) {
-    // TODO Auto-generated method stub
-
+  
+  public static Builder builder() {
+    return new Builder();
   }
   
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private MessageListener messageListener = null;
+  private final Consumer<Throwable> errorListener;
+  private ApplicationMessageConsumer messageListener = null;
   private final MutableRequestMessageFactory requestFactory =
       new SbeMutableRequestMessageFactory(bufferSupplier);
-  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
+  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory(); 
   private final RingBufferSupplier ringBuffer;
-  private final ClientSession session;
+  private ClientSession session;
   private final int timeoutSeconds;
-
+  private Timer timer = new Timer("Client-timer", true);
+  
+  // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
-      if (isApplicationMessage(buffer)) {
-        Message message = responseFactory.wrap(buffer);
-        messageListener.onMessage(message);
-      }
+      session.messageReceived(buffer);
+    } catch (ProtocolViolationException | MessageException e) {
+      //Trader.this.errorListener.accept(e);
+    }
+  };
+  
+  // Consumes application messages from Session
+  private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
+    Message message;
+    try {
+      message = responseFactory.wrap(buffer);
+      messageListener.accept(source, message, seqNo);
     } catch (MessageException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+    
   };
   
-
-  private Timer timer = new Timer("Client-timer", true);
-  public Trader(String host) throws URISyntaxException {
-    this(host, DEFAULT_PORT, DEFAULT_PATH, DEFAULT_TIMEOUT_SECONDS);
-  }
-  public Trader(String host, int port, String path) throws URISyntaxException {
-    this(host, port, path, DEFAULT_TIMEOUT_SECONDS);
-  }
-
-  public Trader(String host, int port, String path, int timeoutSeconds) throws URISyntaxException {
-    this.timeoutSeconds = timeoutSeconds;
+  private Trader(Builder builder) {
+    this.messageListener = Objects.requireNonNull(builder.messageListener, "Message listener not set");
+    this.errorListener = builder.errorListener;
+    this.timeoutSeconds = builder.timeoutSeconds;
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
-    final URI uri = ClientEndpoint.createUri(host, port, path);
-    this.endpoint = new ClientEndpoint(ringBuffer, uri, timeoutSeconds);
-    this.session = new ClientSession(timer , TimeUnit.SECONDS.toMillis(timeoutSeconds));
+    this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
   }
 
   public void close() {
     try {
       endpoint.close();
-      session.disconnected();
+      if (session != null) {
+        session.disconnected();
+      }
       ringBuffer.stop();
     } catch (Exception e) {
       // TODO Auto-generated catch block
@@ -141,11 +222,15 @@ public class Trader implements AutoCloseable {
     return requestFactory.getOrderCancelRequest();
   }
 
-  public void open(MessageListener listener) throws Exception {
-    this.messageListener = listener;
+  public void open() throws Exception {
     ringBuffer.start();
+    if (session == null) {
+      UUID uuid = UUID.randomUUID();
+      this.session = ClientSession.builder().sessionId(Session.UUIDAsBytes(uuid)).timer(timer)
+          .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds)).sessionMessageConsumer(sessionMessageConsumer).build();
+    }
     endpoint.open();
-    session.connected(endpoint);
+    session.connected(endpoint, null);
   }
 
   /**
@@ -173,7 +258,4 @@ public class Trader implements AutoCloseable {
     return builder.toString();
   }
 
-  private boolean isApplicationMessage(ByteBuffer buffer) {
-    return MessageType.APPLICATION == session.messageReceived(buffer);
-  }
 }

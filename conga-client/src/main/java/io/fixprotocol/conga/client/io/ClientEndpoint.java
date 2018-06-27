@@ -17,7 +17,6 @@ package io.fixprotocol.conga.client.io;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -43,20 +42,6 @@ import jdk.incubator.http.WebSocketHandshakeException;
  */
 public class ClientEndpoint implements AutoCloseable {
 
-  private static final String WEBSOCKET_SCHEME = "wss";
-
-  /**
-   * Create a WebSocket URI
-   * 
-   * @param host remote host
-   * @param port remote port
-   * @param path URI path
-   * @return a URI
-   * @throws URISyntaxException if a URI syntax error occurs
-   */
-  public static URI createUri(String host, int port, String path) throws URISyntaxException {
-    return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
-  }
 
   /**
    * 
@@ -108,8 +93,7 @@ public class ClientEndpoint implements AutoCloseable {
    * @param uri WebSocket URI of the remote server
    * @param timeoutSeconds timeout of open and send operations
    */
-  public ClientEndpoint(RingBufferSupplier ringBuffer, URI uri, int timeoutSeconds)
-      throws URISyntaxException {
+  public ClientEndpoint(RingBufferSupplier ringBuffer, URI uri, int timeoutSeconds) {
     this.ringBuffer = ringBuffer;
     this.uri = uri;
     this.timeoutSeconds = timeoutSeconds;

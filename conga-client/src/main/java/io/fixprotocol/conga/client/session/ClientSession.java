@@ -17,10 +17,10 @@ package io.fixprotocol.conga.client.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Timer;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
+import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 
 /**
@@ -31,16 +31,29 @@ public class ClientSession extends SbeSession {
 
   private ClientEndpoint transport;
   
-  public ClientSession(Timer timer, long heartbeatInterval) {
-    super(timer, heartbeatInterval);
+  public static class Builder extends Session.Builder<ClientSession> {
+
+    @Override
+    public ClientSession build() {
+      return new ClientSession(this);
+    }
+    
+  }
+  
+  public static Builder builder() {
+    return new Builder();
+  }
+  
+  private ClientSession(Builder builder)  {
+    super(builder);
   }
 
   @Override
-  public boolean connected(Object transport) {
+  public boolean connected(Object transport, String principal) {
     if (!(transport instanceof ClientEndpoint)) {
       throw new IllegalArgumentException("Unknown transport type");
     }
-    final boolean connected = super.connected(transport);
+    final boolean connected = super.connected(transport, principal);
     if (connected) {
       this.transport = (ClientEndpoint) transport;
     }

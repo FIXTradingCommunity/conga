@@ -16,12 +16,17 @@
 package io.fixprotocol.conga.session;
 
 /**
+ * Factory to create new sessions
+ * 
  * @author Don Mendelson
  *
  */
 public interface SessionFactory {
 
-  
+  /**
+   * Construct a new Session
+   * @return a Session of appropriate type
+   */
   Session newInstance();
 
 }

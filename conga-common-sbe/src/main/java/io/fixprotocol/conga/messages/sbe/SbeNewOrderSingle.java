@@ -31,7 +31,7 @@ import io.fixprotocol.conga.sbe.messages.appl.OrdTypeEnum;
 import io.fixprotocol.conga.sbe.messages.appl.SideEnum;
 
 /**
- * @author donme
+ * @author Don Mendelson
  *
  */
 public class SbeNewOrderSingle implements NewOrderSingle, SbeMessageWrapper {

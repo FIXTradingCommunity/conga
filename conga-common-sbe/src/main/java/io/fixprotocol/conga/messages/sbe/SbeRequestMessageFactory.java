@@ -26,6 +26,7 @@ import io.fixprotocol.conga.messages.RequestMessageFactory;
 import io.fixprotocol.conga.sbe.messages.appl.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.appl.NewOrderSingleDecoder;
 import io.fixprotocol.conga.sbe.messages.appl.OrderCancelRequestDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedDecoder;
 
 /**
  * @author Don Mendelson
@@ -45,16 +46,23 @@ public class SbeRequestMessageFactory implements RequestMessageFactory {
   private final ThreadLocal<SbeNewOrderSingle> newOrderSingleThreadLocal =
       ThreadLocal.withInitial(SbeNewOrderSingle::new);
 
+  private final ThreadLocal<SbeNotApplied> notAppliedThreadLocal =
+      ThreadLocal.withInitial(SbeNotApplied::new);
+
   @Override
   public SbeNewOrderSingle getNewOrderSingle() {
     return newOrderSingleThreadLocal.get();
   }
 
   @Override
+  public SbeNotApplied getNotApplied() {
+    return notAppliedThreadLocal.get();
+  }
+
+  @Override
   public SbeOrderCancelRequest getOrderCancelRequest() {
     return cancelRequestThreadLocal.get();
   }
-
 
   @Override
   public Message wrap(ByteBuffer buffer) throws MessageException {
@@ -68,23 +76,34 @@ public class SbeRequestMessageFactory implements RequestMessageFactory {
     int schemaId = messageHeaderDecoder.schemaId();
     int schemaVersion = messageHeaderDecoder.version();
 
-    if (NewOrderSingleDecoder.SCHEMA_ID != schemaId) {
-      throw new MessageException("Unknown message schema");
-    }
-
-    switch (templateId) {
-      case NewOrderSingleDecoder.TEMPLATE_ID:
-        final var newOrderSingle = getNewOrderSingle();
-        newOrderSingle.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
-            schemaVersion);
-        return newOrderSingle;
-      case OrderCancelRequestDecoder.TEMPLATE_ID:
-        var orderCancelRequest = getOrderCancelRequest();
-        orderCancelRequest.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
-            schemaVersion);
-        return orderCancelRequest;
+    switch (schemaId) {
+      case NewOrderSingleDecoder.SCHEMA_ID:
+        switch (templateId) {
+          case NewOrderSingleDecoder.TEMPLATE_ID:
+            final var newOrderSingle = getNewOrderSingle();
+            newOrderSingle.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                schemaVersion);
+            return newOrderSingle;
+          case OrderCancelRequestDecoder.TEMPLATE_ID:
+            var orderCancelRequest = getOrderCancelRequest();
+            orderCancelRequest.wrap(buffer, offset + messageHeaderDecoder.encodedLength(),
+                blockLength, schemaVersion);
+            return orderCancelRequest;
+          default:
+            throw new MessageException("Unknown message template");
+        }
+      case NotAppliedDecoder.SCHEMA_ID:
+        switch (templateId) {
+          case NotAppliedDecoder.TEMPLATE_ID:
+            var notApplied = getNotApplied();
+            notApplied.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                schemaVersion);
+            return notApplied;
+          default:
+            throw new MessageException("Unknown message template");
+        }
       default:
-        throw new MessageException("Unknown template");
+        throw new MessageException("Unknown message schema");
     }
   }
 

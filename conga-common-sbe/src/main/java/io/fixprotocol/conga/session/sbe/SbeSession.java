@@ -17,13 +17,13 @@ package io.fixprotocol.conga.session.sbe;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Timer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceEncoder;
 import io.fixprotocol.conga.session.Session;
@@ -47,10 +47,16 @@ public abstract class SbeSession extends Session {
   private final SequenceDecoder sequenceDecoder = new SequenceDecoder();
   private final SequenceEncoder sequenceEncoder = new SequenceEncoder();
   private final UnsafeBuffer sequenceMutableBuffer = new UnsafeBuffer();
-
-
-  protected SbeSession(Timer timer, long heartbeatInterval) {
-    super(timer, heartbeatInterval);
+  private final RetransmitRequestEncoder retransmitRequestEncoder = new RetransmitRequestEncoder();
+  private final ByteBuffer retransmitRequestBuffer = ByteBuffer.allocateDirect(48);
+  private final UnsafeBuffer retransmitRequestMutableBuffer = new UnsafeBuffer();
+  
+  protected SbeSession(Builder builder)  {
+    super(builder);
+    init();
+  }
+  
+  private void init() {
     final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
     sequenceMutableBuffer.wrap(sequenceBuffer);
     sequenceEncoder.wrapAndApplyHeader(sequenceMutableBuffer, 0, headerEncoder);
@@ -58,6 +64,13 @@ public abstract class SbeSession extends Session {
     notAppliedMutableBuffer.wrap(notAppliedBuffer);
     notAppliedEncoder.wrapAndApplyHeader(notAppliedMutableBuffer, 0, headerEncoder);
     notAppliedBuffer.limit(headerEncoder.encodedLength() + notAppliedEncoder.encodedLength());
+    retransmitRequestMutableBuffer.wrap(retransmitRequestBuffer);
+    retransmitRequestEncoder.wrapAndApplyHeader(retransmitRequestMutableBuffer, 0, headerEncoder);
+
+    for (int i=0; i<RetransmitRequestEncoder.sessionIdEncodingLength(); i++) {
+      retransmitRequestEncoder.sessionId(i , getSessionId()[i]);
+    }
+    retransmitRequestBuffer.limit(headerEncoder.encodedLength() + retransmitRequestEncoder.encodedLength());
   }
 
   @Override
@@ -74,8 +87,16 @@ public abstract class SbeSession extends Session {
   }
 
   @Override
+  protected void doSendRetransmitRequest(long fromSeqNo, long count)
+      throws IOException, InterruptedException {
+    retransmitRequestEncoder.timestamp(getTimeAsNanos());
+    retransmitRequestEncoder.fromSeqNo(fromSeqNo);
+    retransmitRequestEncoder.count(count);
+    doSendMessage(retransmitRequestBuffer.duplicate());  }
+
+  @Override
   protected MessageType getMessageType(ByteBuffer buffer) {
-    MessageType messageType = MessageType.IGNORE;
+    MessageType messageType = MessageType.UNKNOWN;
     directBuffer.wrap(buffer);
     headerDecoder.wrap(directBuffer, 0);
     if (SequenceEncoder.SCHEMA_ID != headerDecoder.schemaId()) {

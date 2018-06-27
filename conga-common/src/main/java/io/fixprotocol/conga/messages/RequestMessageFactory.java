@@ -28,4 +28,6 @@ public interface RequestMessageFactory {
   NewOrderSingle getNewOrderSingle();
   
   OrderCancelRequest getOrderCancelRequest();
+  
+  NotApplied getNotApplied();
 }

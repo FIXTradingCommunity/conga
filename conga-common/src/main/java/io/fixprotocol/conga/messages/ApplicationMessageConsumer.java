@@ -15,24 +15,22 @@
 
 package io.fixprotocol.conga.messages;
 
+import io.fixprotocol.conga.messages.Message;
+
 /**
- * Event handler for messages
+ * Consumes application messages from a Session
  * 
  * @author Don Mendelson
  *
  */
-public interface MessageListener {
-
-  /**
-   * A Message was received
-   * @param message
-   */
-  void onMessage(Message message);
+public interface ApplicationMessageConsumer {
   
   /**
-   * An exception occurred in message receiving or parsing
-   * 
-   * @param error a message processing exception
+   * Consume an application message
+   * @param source a session identifier
+   * @param message a message to consume
+   * @param seqNo sequence number of the message
    */
-  void onError(Throwable error);
+  void accept(String source, Message message, long seqNo);
+
 }

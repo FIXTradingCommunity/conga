@@ -18,6 +18,7 @@ package io.fixprotocol.conga.server.session;
 import java.util.Timer;
 
 import io.fixprotocol.conga.session.SessionFactory;
+import io.fixprotocol.conga.session.SessionMessageConsumer;
 
 /**
  * @author Don Mendelson
@@ -27,15 +28,19 @@ public class ServerSessionFactory implements SessionFactory {
 
   private final long heartbeatInterval;
   private final Timer timer;
+  private final SessionMessageConsumer sessionMessageConsumer;
 
-  public ServerSessionFactory(Timer timer, long heartbeatInterval) {
+  public ServerSessionFactory(SessionMessageConsumer sessionMessageConsumer, Timer timer,
+      long heartbeatInterval) {
+    this.sessionMessageConsumer = sessionMessageConsumer;
     this.timer = timer;
     this.heartbeatInterval = heartbeatInterval;
   }
 
   @Override
   public ServerSession newInstance() {
-    return new ServerSession(timer, heartbeatInterval);
+    return ServerSession.builder().timer(timer).heartbeatInterval(heartbeatInterval)
+        .sessionMessageConsumer(sessionMessageConsumer).build();
   }
 
 }

@@ -84,7 +84,7 @@ public class BinaryExchangeSocket {
   @OnWebSocketConnect
   public void onOpen(Session session) {
     this.webSocketSession = session;
-    this.fixSession.connected(this);
+    this.fixSession.connected(this, principal);
   }
 
   public void send(ByteBuffer buffer) throws IOException {

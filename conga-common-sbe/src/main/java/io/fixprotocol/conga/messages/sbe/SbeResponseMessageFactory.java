@@ -26,6 +26,7 @@ import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.sbe.messages.appl.ExecutionReportDecoder;
 import io.fixprotocol.conga.sbe.messages.appl.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.appl.OrderCancelRejectDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedDecoder;
 
 /**
  * @author Don Mendelson
@@ -45,9 +46,17 @@ public class SbeResponseMessageFactory implements ResponseMessageFactory {
   private final ThreadLocal<MessageHeaderDecoder> headerThreadLocal =
       ThreadLocal.withInitial(MessageHeaderDecoder::new);
 
+  private final ThreadLocal<SbeNotApplied> notAppliedThreadLocal =
+      ThreadLocal.withInitial(SbeNotApplied::new);
+
   @Override
   public SbeExecutionReport getExecutionReport() {
     return executionThreadLocal.get();
+  }
+
+  @Override
+  public SbeNotApplied getNotApplied() {
+    return notAppliedThreadLocal.get();
   }
 
   @Override
@@ -67,25 +76,35 @@ public class SbeResponseMessageFactory implements ResponseMessageFactory {
     int schemaId = messageHeaderDecoder.schemaId();
     int schemaVersion = messageHeaderDecoder.version();
 
-    if (OrderCancelRejectDecoder.SCHEMA_ID != schemaId) {
-      throw new MessageException("Unknown message schema");
-    }
-
-    switch (templateId) {
-      case OrderCancelRejectDecoder.TEMPLATE_ID:
-        final var reject = getOrderCancelReject();
-        reject.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
-            schemaVersion);
-        return reject;
-      case ExecutionReportDecoder.TEMPLATE_ID:
-        final var execution = getExecutionReport();
-        execution.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
-            schemaVersion);
-        return execution;
+    switch (schemaId) {
+      case OrderCancelRejectDecoder.SCHEMA_ID:
+        switch (templateId) {
+          case OrderCancelRejectDecoder.TEMPLATE_ID:
+            final var reject = getOrderCancelReject();
+            reject.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                schemaVersion);
+            return reject;
+          case ExecutionReportDecoder.TEMPLATE_ID:
+            final var execution = getExecutionReport();
+            execution.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                schemaVersion);
+            return execution;
+          default:
+            throw new MessageException("Unknown template");
+        }
+      case NotAppliedDecoder.SCHEMA_ID:
+        switch (templateId) {
+          case NotAppliedDecoder.TEMPLATE_ID:
+            var notApplied = getNotApplied();
+            notApplied.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                schemaVersion);
+            return notApplied;
+          default:
+            throw new MessageException("Unknown message template");
+        }
       default:
-        throw new MessageException("Unknown template");
+        throw new MessageException("Unknown message schema");
     }
-
   }
 
 }

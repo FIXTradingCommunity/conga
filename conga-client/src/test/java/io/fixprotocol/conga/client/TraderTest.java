@@ -19,13 +19,14 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import io.fixprotocol.conga.messages.ApplicationMessageConsumer;
 import io.fixprotocol.conga.messages.Message;
-import io.fixprotocol.conga.messages.MessageListener;
 import io.fixprotocol.conga.messages.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.OrdType;
 import io.fixprotocol.conga.messages.Side;
@@ -39,14 +40,15 @@ import io.fixprotocol.conga.messages.Side;
 public class TraderTest {
 
   private Trader trader;
-  private class TestMessageListener implements MessageListener {
+
+  private class TestMessageListener implements ApplicationMessageConsumer {
 
     private int count = 0;
-    
+
     @Override
-    public void onMessage(Message message) {
+    public void accept(String source, Message message, long seqNo) {
       count++;
-      //System.out.println(message.toString());
+      // System.out.println(message.toString());
     }
 
     public int getCount() {
@@ -57,24 +59,32 @@ public class TraderTest {
       this.count = 0;
     }
 
+
+  };
+
+  private class TestErrorHandler implements Consumer<Throwable> {
+
     @Override
-    public void onError(Throwable error) {
+    public void accept(Throwable error) {
       error.printStackTrace();
       fail();
     }
-    
   };
-  
+
+
   private TestMessageListener listener = new TestMessageListener();
-  
+  private TestErrorHandler errorHandler = new TestErrorHandler();
+
   /**
    * @throws java.lang.Exception
    */
   @Before
   public void setUp() throws Exception {
     listener.reset();
-    trader = new Trader("localhost", 8025, "/trade", 2);
-    trader.open(listener );
+
+    trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
+        .messageListener(listener).errorListener(errorHandler).build();
+    trader.open();
   }
 
   /**
@@ -100,7 +110,7 @@ public class TraderTest {
     long seqNo = trader.send(order1);
     order1.release();
     assertEquals(1, seqNo);
-    
+
     MutableNewOrderSingle order2 = trader.createOrder();
     order2.setClOrdId("C2");
     order2.setOrderQty(3);
@@ -112,14 +122,14 @@ public class TraderTest {
     seqNo = trader.send(order2);
     order2.release();
     assertEquals(2, seqNo);
-    
+
     Thread.sleep(1000);
-    
+
     assertEquals(3, listener.getCount());
-    
-    //System.out.println(trader.toString());
+
+    // System.out.println(trader.toString());
   }
-  
+
   @Test
   public void quiescent() throws InterruptedException {
     Thread.sleep(10000);
