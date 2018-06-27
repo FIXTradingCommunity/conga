@@ -56,12 +56,12 @@ public class BinaryExchangeSocket {
   public BinaryExchangeSocket(ServerSessions sessions, RingBufferSupplier ringBuffer, String principal) {
     this.ringBuffer = ringBuffer;
     this.principal = principal;
-    fixSession = sessions.getSession(principal);
+    this.fixSession = sessions.getSession(principal);
   }
 
   @OnWebSocketClose
   public void onClose(Session session, int statusCode, String reason) {
-    this.fixSession.disconnected();
+    fixSession.disconnected();
   }
 
   @OnWebSocketError
@@ -87,12 +87,12 @@ public class BinaryExchangeSocket {
     this.fixSession.connected(this, principal);
   }
 
-  public void send(ByteBuffer buffer) throws IOException {
+  public final void send(ByteBuffer buffer) throws IOException {
     // synchronous send
     webSocketSession.getRemote().sendBytes(buffer);
   }
   
-  public void close() {
+  public final void close() {
     // code for normal closure
     webSocketSession.close(1000, "");
   }

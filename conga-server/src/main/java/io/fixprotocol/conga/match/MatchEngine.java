@@ -139,7 +139,7 @@ public class MatchEngine {
   public List<MutableMessage> onOrder(String source, NewOrderSingle order) {
     List<MutableMessage> responses = new ArrayList<>();
     var orderBook = orderBooks.get(order.getSymbol());
-    if (orderBook == null) {
+    if (null == orderBook) {
       orderBook = new OrderBook();
       orderBooks.put(order.getSymbol(), orderBook);
     }
@@ -186,7 +186,7 @@ public class MatchEngine {
       if (workingOrder.getCumQty() == 0) {
         ordStatus = OrdStatus.New;
       } else {
-        ordStatus = workingOrder.getLeavesQty() == 0 ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
+        ordStatus = (workingOrder.getLeavesQty() == 0) ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
       }
       MutableExecutionReport executionReport =
           populateExecutionReportTrade(workingOrder, fillQtys, fillPxs, ordStatus);

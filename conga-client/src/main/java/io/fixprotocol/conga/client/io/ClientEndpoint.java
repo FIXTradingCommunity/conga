@@ -82,7 +82,7 @@ public class ClientEndpoint implements AutoCloseable {
   };
 
   private final RingBufferSupplier ringBuffer;
-  private long timeoutSeconds;
+  private final long timeoutSeconds;
   private final URI uri;
   private final AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
 
@@ -147,7 +147,7 @@ public class ClientEndpoint implements AutoCloseable {
    */
   public CompletableFuture<ByteBuffer> send(ByteBuffer data) throws Exception {
     final WebSocket webSocket = webSocketRef.get();
-    if (webSocket != null) {
+    if (null != webSocket) {
       CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
       return future.thenCompose(w -> CompletableFuture.completedFuture(data));
     } else {

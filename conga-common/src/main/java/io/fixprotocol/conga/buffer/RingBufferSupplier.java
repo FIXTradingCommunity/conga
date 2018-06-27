@@ -117,7 +117,7 @@ public class RingBufferSupplier implements BufferSupplier {
 
     @Override
     public void setSource(String source) {
-      if (null != bufferEvent && eventRef.compareAndSet(bufferEvent, bufferEvent)) {
+      if ((null != bufferEvent) && eventRef.compareAndSet(bufferEvent, bufferEvent)) {
         bufferEvent.setSource(source);
       } else {
         throw new IllegalStateException("Buffer not acquired");

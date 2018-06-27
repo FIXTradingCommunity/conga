@@ -133,7 +133,7 @@ public class BufferCache implements List<ByteBuffer> {
 
   @Override
   public boolean add(ByteBuffer src) {
-    if (src == null) {
+    if (null == src) {
       return false;
     }
     maxIndex++;
@@ -156,7 +156,7 @@ public class BufferCache implements List<ByteBuffer> {
    */
   @Override
   public void add(int index, ByteBuffer src) {
-    if (index < getMinimumAvailableIndex() || index > getMinimumAvailableIndex() + cache.length) {
+    if ((index < getMinimumAvailableIndex()) || (index > (getMinimumAvailableIndex() + cache.length))) {
       throw new IndexOutOfBoundsException();
     } else {
       int max = getMaximumAvailableIndex();
@@ -359,7 +359,7 @@ public class BufferCache implements List<ByteBuffer> {
     return a;
   }
 
-  private void copyBuffer(ByteBuffer src, ByteBuffer dest) {
+  private static void copyBuffer(ByteBuffer src, ByteBuffer dest) {
     dest.clear();
     ByteBuffer dup = src.duplicate();
     dest.put(dup);

@@ -88,7 +88,7 @@ public class Exchange implements AutoCloseable {
   private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
   private ExchangeSocketServer server = null;
   private final ServerSessions sessions;
-  private Timer timer = new Timer("Server-timer", true);
+  private final Timer timer = new Timer("Server-timer", true);
 
   
   // Consumes messages from ring buffer
@@ -135,7 +135,7 @@ public class Exchange implements AutoCloseable {
     if (0 != port) {
       this.port = port;
     }
-    if (contextPath != null) {
+    if (null != contextPath) {
       this.contextPath = contextPath;
     }
     this.incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);

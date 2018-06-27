@@ -15,8 +15,6 @@
 
 package io.fixprotocol.conga.messages;
 
-import io.fixprotocol.conga.messages.Message;
-
 /**
  * Consumes application messages from a Session
  * 

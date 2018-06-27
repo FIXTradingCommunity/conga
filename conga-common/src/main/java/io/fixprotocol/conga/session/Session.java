@@ -36,14 +36,14 @@ import io.fixprotocol.conga.messages.MessageException;
  */
 public abstract class Session {
 
-  public static abstract class Builder<T> {
+  public abstract static class Builder<T> {
 
-    public SessionMessageConsumer sessionMessageConsumer;
-    public long heartbeatInterval;
-    public byte[] sessionId = new byte[16];
-    public Timer timer;
-    public FlowType inboundFlowType = FlowType.IDEMPOTENT;
-    public FlowType outboundFlowType = FlowType.IDEMPOTENT;
+    private SessionMessageConsumer sessionMessageConsumer = null;
+    private long heartbeatInterval;
+    private byte[] sessionId = new byte[16];
+    private Timer timer;
+    private FlowType inboundFlowType = FlowType.IDEMPOTENT;
+    private FlowType outboundFlowType = FlowType.IDEMPOTENT;
 
     protected Builder() {
 
@@ -158,7 +158,7 @@ public abstract class Session {
       }
 
     }
-  };
+  }
 
   /**
    * Serialize a session ID
@@ -177,7 +177,7 @@ public abstract class Session {
     return sessionId;
   }
 
-  private final SessionMessageConsumer sessionMessageConsumer;;
+  private final SessionMessageConsumer sessionMessageConsumer;
   private final AtomicBoolean criticalSection = new AtomicBoolean();
   private HeartbeatDueTask heartbeatDueTask;
   private final long heartbeatInterval;
@@ -329,7 +329,7 @@ public abstract class Session {
         sequenceMessageReceived(buffer);
         break;
       case APPLICATION:
-        if (inboundFlowType == FlowType.NONE) {
+        if (FlowType.NONE == inboundFlowType) {
           throw new ProtocolViolationException("Application message received on NONE flow");
         }
         seqNo = applicationMessageReceived();
@@ -349,7 +349,8 @@ public abstract class Session {
         if (nextSeqNoAccepted.compareAndSet(seqNo, seqNo)) {
           nextSeqNoAccepted.incrementAndGet();
           sessionMessageConsumer.accept(principal, buffer, seqNo);
-        } 
+        }
+        break;
       default:
         throw new MessageException("Unknown message type received");
     }
@@ -457,7 +458,7 @@ public abstract class Session {
    * 
    * @return current timestamp as nanoseconds
    */
-  protected long getTimeAsNanos() {
+  protected static long getTimeAsNanos() {
     return System.nanoTime();
   }
 }

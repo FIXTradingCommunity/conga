@@ -32,7 +32,7 @@ import io.fixprotocol.conga.server.session.ServerSessions;
  * @author Don Mendelson
  *
  */
-public final class ExchangeSocketServer {
+public class ExchangeSocketServer {
 
   /**
    * Builds an instance of {@code ExchangeSocketServer}
@@ -131,7 +131,7 @@ public final class ExchangeSocketServer {
     if (null != keyStorePassword) {
       sslContextFactory.setKeyStorePassword(keyStorePassword);
     }
-    if (keyManagerPassword != null) {
+    if (null != keyManagerPassword) {
       sslContextFactory.setKeyManagerPassword(keyManagerPassword);
     }
     SslConnectionFactory sslConnectionFactory =

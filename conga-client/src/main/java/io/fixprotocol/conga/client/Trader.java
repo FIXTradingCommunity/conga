@@ -70,7 +70,7 @@ public class Trader implements AutoCloseable {
    * </pre>
    *
    */
-  public static final class Builder {
+  public static class Builder {
     
     private static final String WEBSOCKET_SCHEME = "wss";
     
@@ -91,7 +91,7 @@ public class Trader implements AutoCloseable {
     }
 
     public Trader build() throws URISyntaxException {
-      if (this.uri == null) {
+      if (null == this.uri) {
         this.uri = createUri(host, port, path);
       }
 
@@ -153,7 +153,7 @@ public class Trader implements AutoCloseable {
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
   private final int timeoutSeconds;
-  private Timer timer = new Timer("Client-timer", true);
+  private final Timer timer = new Timer("Client-timer", true);
   
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {

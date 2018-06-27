@@ -15,7 +15,11 @@
 
 package io.fixprotocol.conga.match;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.NavigableSet;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import io.fixprotocol.conga.messages.Side;
 
