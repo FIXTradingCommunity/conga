@@ -17,10 +17,12 @@ package io.fixprotocol.conga.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -38,74 +40,109 @@ public abstract class Session {
 
   public abstract static class Builder<T> {
 
-    private SessionMessageConsumer sessionMessageConsumer = null;
+    public Executor executor;
     private long heartbeatInterval;
-    private byte[] sessionId = new byte[16];
-    private Timer timer;
     private FlowType inboundFlowType = FlowType.IDEMPOTENT;
     private FlowType outboundFlowType = FlowType.IDEMPOTENT;
+    private List<ByteBuffer> sendCache;
+    private byte[] sessionId = new byte[16];
+    private SessionMessageConsumer sessionMessageConsumer = null;
+    private Timer timer;
 
     protected Builder() {
 
     }
-    
+
     public abstract T build();
-    
+
+    /**
+     * Executor for asynchronous operations
+     * 
+     * @param executor executor implementation
+     * @return this Builder
+     */
+    public Builder<T> executor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
+    /**
+     * Heartbeat interval in millis
+     * 
+     * @param heartbeatInterval interval in millis
+     * @return this Builder
+     */
     public Builder<T> heartbeatInterval(long heartbeatInterval) {
       this.heartbeatInterval = heartbeatInterval;
       return this;
     }
 
-    public Builder<T> inboundFlowType(
-        FlowType inboundFlowType) {
+    /**
+     * Delivery guarantee for inbound messages
+     * 
+     * @param inboundFlowType inbound flow type
+     * @return this Builder
+     */
+    public Builder<T> inboundFlowType(FlowType inboundFlowType) {
       this.inboundFlowType = inboundFlowType;
       return this;
     }
 
-    public Builder<T> outboundFlowType(
-        FlowType outboundFlowType) {
+    /**
+     * Delivery guarantee for outbound messages
+     * 
+     * @param inboundFlowType outbound flow type
+     * @return this Builder
+     */
+    public Builder<T> outboundFlowType(FlowType outboundFlowType) {
       this.outboundFlowType = outboundFlowType;
       return this;
     }
 
+    /**
+     * An interface to persist outbound messages for recoverability.
+     *
+     * @param sendCache an interface to persist messages
+     * @return this Builder
+     */
+    public Builder<T> sendCache(List<ByteBuffer> sendCache) {
+      this.sendCache = sendCache;
+      return this;
+    }
+
+    /**
+     * A transient FIXP session identifier
+     * 
+     * @param sessionId session identifier in the form of a UUID
+     * @return this Builder
+     */
     public Builder<T> sessionId(byte[] sessionId) {
       this.sessionId = sessionId;
       return this;
     }
 
-    public Builder<T> sessionMessageConsumer(
-        SessionMessageConsumer sessionMessageConsumer) {
+    /**
+     * A consumer of messages received through this Session
+     * 
+     * @param sessionMessageConsumer a message consumer
+     * @return this Builder
+     */
+    public Builder<T> sessionMessageConsumer(SessionMessageConsumer sessionMessageConsumer) {
       this.sessionMessageConsumer = sessionMessageConsumer;
       return this;
     }
 
+    /**
+     * A shared Timer for scheduled events
+     * 
+     * @param timer
+     * @return this Builder
+     */
     public Builder<T> timer(Timer timer) {
       this.timer = timer;
       return this;
     }
 
-  }
-
-  public enum FlowType {
-    /**
-     * Guarantees at-most-once delivery
-     */
-    IDEMPOTENT,
-
-    /**
-     * No application messages should be sent in one direction of a session
-     */
-    NONE,
-
-    /**
-     * Guarantees exactly-once message delivery
-     */
-    RECOVERABLE,
-
-    /**
-     * Best effort delivery
-     */
-    UNSEQUENCED
   }
 
   public enum MessageType {
@@ -142,9 +179,9 @@ public abstract class Session {
       if (isHeartbeatDueToReceive()) {
         doDisconnect();
       }
-
     }
   }
+
   private class HeartbeatSendTask extends TimerTask {
 
     @Override
@@ -156,7 +193,36 @@ public abstract class Session {
           disconnected();
         }
       }
+    }
+  }
 
+  protected static class SequenceRange {
+    private long count;
+    private long fromSeqNo;
+    private long timestamp;
+
+    public long getCount() {
+      return count;
+    }
+
+    public long getFromSeqNo() {
+      return fromSeqNo;
+    }
+
+    public long getTimestamp() {
+      return timestamp;
+    }
+
+    public void setCount(long count) {
+      this.count = count;
+    }
+
+    public void setFromSeqNo(long fromSeqNo) {
+      this.fromSeqNo = fromSeqNo;
+    }
+
+    public void setTimestamp(long timestamp) {
+      this.timestamp = timestamp;
     }
   }
 
@@ -177,8 +243,17 @@ public abstract class Session {
     return sessionId;
   }
 
-  private final SessionMessageConsumer sessionMessageConsumer;
-  private final AtomicBoolean criticalSection = new AtomicBoolean();
+  /**
+   * A time relative to an internal clock; not guaranteed to be wall clock time.
+   * 
+   * @return current timestamp as nanoseconds
+   */
+  protected static long getTimeAsNanos() {
+    return System.nanoTime();
+  }
+
+  private final AtomicBoolean connectedCriticalSection = new AtomicBoolean();
+  private final Executor executor;
   private HeartbeatDueTask heartbeatDueTask;
   private final long heartbeatInterval;
   private HeartbeatSendTask heartbeatSendTask;
@@ -186,13 +261,19 @@ public abstract class Session {
   private boolean isConnected = false;
   private final AtomicBoolean isHeartbeatDueToReceive = new AtomicBoolean(true);
   private final AtomicBoolean isHeartbeatDueToSend = new AtomicBoolean(true);
-  private final AtomicLong nextSeqNoAccepted = new AtomicLong(1);
-  private final AtomicLong nextSeqNoReceived = new AtomicLong(1L);
+  private boolean isRetransmission = false;
+  private long nextSeqNoAccepted = 1L;
+  private long nextSeqNoReceived = 1L;
   private final AtomicLong nextSeqNoSent = new AtomicLong(1L);
   private FlowType outboundFlowType;
-  private final byte[] sessionId;
-  private final Timer timer;
   private String principal;
+  private final AtomicBoolean receivedCriticalSection = new AtomicBoolean();
+  private SequenceRange retransmitRange = new SequenceRange();
+  private List<ByteBuffer> sendCache;
+  private final AtomicBoolean sendCriticalSection = new AtomicBoolean();
+  private final byte[] sessionId;
+  private final SessionMessageConsumer sessionMessageConsumer;
+  private final Timer timer;
 
   protected Session(@SuppressWarnings("rawtypes") Builder builder) {
     this.timer = builder.timer;
@@ -201,36 +282,43 @@ public abstract class Session {
     this.sessionMessageConsumer = builder.sessionMessageConsumer;
     this.inboundFlowType = builder.inboundFlowType;
     this.outboundFlowType = builder.outboundFlowType;
+    this.sendCache = builder.sendCache;
+    this.executor = builder.executor;
+
+    if (outboundFlowType == FlowType.RECOVERABLE && sendCache == null) {
+      throw new IllegalArgumentException("No send cache for a recoverable flow");
+    }
+    if (outboundFlowType == FlowType.RECOVERABLE && executor == null) {
+      throw new IllegalArgumentException("No Executor for asynchronous retransmission");
+    }
   }
 
   /**
    * Returns sequence number of received application message Side effect: sequence number is
    * incremented
    * 
-   * @return sequence number
+   * @param buffer holds an application message
    */
-  public long applicationMessageReceived() {
-    return nextSeqNoReceived.getAndIncrement();
-  }
-
-  /**
-   * Returns sequence number of sent application message Side effect: sequence number is incremented
-   * 
-   * @return sequence number
-   */
-  public long applicationMessageSent() {
-    return nextSeqNoSent.getAndIncrement();
+  public void applicationMessageReceived(ByteBuffer buffer) {
+    long seqNo = nextSeqNoReceived;
+    nextSeqNoReceived++;
+    if (nextSeqNoAccepted == seqNo) {
+      sessionMessageConsumer.accept(principal, buffer, seqNo);
+      nextSeqNoAccepted++;
+    }
+    // else duplicate message ignored
   }
 
   /**
    * The underlying transport was connected
+   * 
    * @param principal party responsible for this Session
    * 
    * @return Returns {@code true} if the transport was previously unconnected, {@code false} if it
    *         was already connected.
    */
   public boolean connected(Object transport, String principal) {
-    while (!criticalSection.compareAndSet(false, true)) {
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
     }
     try {
@@ -248,10 +336,9 @@ public abstract class Session {
         return false;
       }
     } finally {
-      criticalSection.compareAndSet(true, false);
+      connectedCriticalSection.compareAndSet(true, false);
     }
   }
-
 
   /**
    * The underlying transport was disconnected
@@ -261,7 +348,7 @@ public abstract class Session {
    */
 
   public boolean disconnected() {
-    while (!criticalSection.compareAndSet(false, true)) {
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
     }
     try {
@@ -274,20 +361,12 @@ public abstract class Session {
         return false;
       }
     } finally {
-      criticalSection.compareAndSet(true, false);
+      connectedCriticalSection.compareAndSet(true, false);
     }
   }
 
   public FlowType getInboundFlowType() {
     return inboundFlowType;
-  }
-
-  public long getNextSeqNoReceived() {
-    return nextSeqNoReceived.get();
-  }
-
-  public long getNextSeqNoSent() {
-    return nextSeqNoSent.get();
   }
 
   public FlowType getOutboundFlowType() {
@@ -303,56 +382,70 @@ public abstract class Session {
   }
 
   public boolean isConnected() {
-    while (!criticalSection.compareAndSet(false, true)) {
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
     }
     try {
       return isConnected;
     } finally {
-      criticalSection.compareAndSet(true, false);
+      connectedCriticalSection.compareAndSet(true, false);
     }
   }
 
   /**
    * Notifies the Session that a message has been received
+   * 
    * @param buffer holds a single message
    * @throws ProtocolViolationException if the Session is in an invalid state for the message type
    * @throws MessageException if the message cannot be parsed or its type is unknown
    */
-  public void messageReceived(ByteBuffer buffer) throws ProtocolViolationException, MessageException {
-    isHeartbeatDueToReceive.set(false);
-    MessageType messageType = getMessageType(buffer);
+  public void messageReceived(ByteBuffer buffer)
+      throws ProtocolViolationException, MessageException {
+    while (!receivedCriticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      isHeartbeatDueToReceive.set(false);
+      MessageType messageType = getMessageType(buffer);
 
-    long seqNo;
-    switch (messageType) {
-      case SEQUENCE:
-        sequenceMessageReceived(buffer);
-        break;
-      case APPLICATION:
-        if (FlowType.NONE == inboundFlowType) {
-          throw new ProtocolViolationException("Application message received on NONE flow");
-        }
-        seqNo = applicationMessageReceived();
-        if (nextSeqNoAccepted.compareAndSet(seqNo, seqNo)) {
-          nextSeqNoAccepted.incrementAndGet();
-          sessionMessageConsumer.accept(principal, buffer, seqNo);
-        } 
-        // else duplicate message ignored
-        break;
-      case NOT_APPLIED:
-        if (outboundFlowType != FlowType.IDEMPOTENT) {
-          throw new ProtocolViolationException(
-              "NotApplied message received for non-Idempotent flow");
-        }
-        // Session protocol defined message but consumes a sequence number
-        seqNo = applicationMessageReceived();
-        if (nextSeqNoAccepted.compareAndSet(seqNo, seqNo)) {
-          nextSeqNoAccepted.incrementAndGet();
-          sessionMessageConsumer.accept(principal, buffer, seqNo);
-        }
-        break;
-      default:
-        throw new MessageException("Unknown message type received");
+      switch (messageType) {
+        case SEQUENCE:
+          sequenceMessageReceived(buffer);
+          break;
+        case APPLICATION:
+          if (FlowType.NONE == inboundFlowType) {
+            throw new ProtocolViolationException("Application message received on NONE flow");
+          }
+          applicationMessageReceived(buffer);
+          break;
+        case NOT_APPLIED:
+          if (outboundFlowType != FlowType.IDEMPOTENT) {
+            throw new ProtocolViolationException(
+                "NotApplied message received for non-Idempotent flow");
+          }
+          // Session protocol defined message but consumes a sequence number
+          applicationMessageReceived(buffer);
+          break;
+        case RETRANSMIT_REQUEST:
+          if (outboundFlowType != FlowType.RECOVERABLE) {
+            throw new ProtocolViolationException(
+                "Retransmit request message received for non-Recoverable flow");
+          }
+          getRetransmitRequestSequenceRange(buffer, retransmitRange);
+          retransmitAsync(retransmitRange);
+          break;
+        case RETRANSMISSION:
+          if (inboundFlowType != FlowType.RECOVERABLE) {
+            throw new ProtocolViolationException("Retransmission received on non-Recoverable flow");
+          }
+          isRetransmission = true;
+          getRetransmissionSequenceRange(buffer, retransmitRange);
+          break;
+        default:
+          throw new MessageException("Unknown message type received");
+      }
+    } finally {
+      receivedCriticalSection.compareAndSet(true, false);
     }
   }
 
@@ -367,17 +460,27 @@ public abstract class Session {
    */
   public long sendApplicationMessage(ByteBuffer buffer) throws IOException, InterruptedException {
     long seqNo = 0;
-    try {
-      if (isConnected()) {
+    if (isConnected()) {
+      try {
+        while (!sendCriticalSection.compareAndSet(false, true)) {
+          Thread.yield();
+        }
+
         doSendMessage(buffer);
-        seqNo = applicationMessageSent();
+        seqNo = nextSeqNoSent.getAndIncrement();
         isHeartbeatDueToSend.set(false);
-      } else {
-        throw new IllegalStateException("Not connected");
+        if (outboundFlowType == FlowType.RECOVERABLE) {
+          sendCache.add((int) seqNo, buffer);
+        }
+
+      } catch (IOException e) {
+        disconnected();
+        throw e;
+      } finally {
+        sendCriticalSection.compareAndSet(true, false);
       }
-    } catch (IOException e) {
-      disconnected();
-      throw e;
+    } else {
+      throw new IllegalStateException("Not connected");
     }
     return seqNo;
   }
@@ -391,7 +494,7 @@ public abstract class Session {
    */
   public void sendHeartbeat() {
     try {
-      doSendHeartbeat(getNextSeqNoSent());
+      doSendHeartbeat(nextSeqNoSent.get());
     } catch (IOException | InterruptedException e) {
       disconnected();
     }
@@ -413,15 +516,43 @@ public abstract class Session {
     return isHeartbeatDueToSend.getAndSet(true);
   }
 
+  private void retransmitAsync(SequenceRange retransmitRange) {
+    Objects.requireNonNull(retransmitRange);
+
+    executor.execute(() -> {
+      List<ByteBuffer> buffers = sendCache.subList((int) retransmitRange.fromSeqNo,
+          (int) (retransmitRange.fromSeqNo + retransmitRange.count));
+      try {
+        while (!sendCriticalSection.compareAndSet(false, true)) {
+          Thread.yield();
+        }
+        doSendRetransmission(retransmitRange);
+        for (ByteBuffer buffer : buffers) {
+          doSendMessage(buffer);
+        }
+      } catch (IOException e) {
+        disconnected();
+      } catch (InterruptedException e) {
+
+      } finally {
+        sendCriticalSection.compareAndSet(true, false);
+      }
+    });
+  }
+
   private void sequenceMessageReceived(ByteBuffer buffer) {
+    isRetransmission = false;
     long newNextSeqNo = getNextSequenceNumber(buffer);
-    long prevNextSeqNo = nextSeqNoReceived.getAndSet(newNextSeqNo);
-    long accepted = nextSeqNoAccepted.get();
-    if (newNextSeqNo > accepted) {
+    long prevNextSeqNo = nextSeqNoReceived;
+    nextSeqNoReceived = newNextSeqNo;
+    if (newNextSeqNo > nextSeqNoAccepted) {
       try {
         switch (inboundFlowType) {
           case RECOVERABLE:
-            doSendRetransmitRequest(prevNextSeqNo, newNextSeqNo - prevNextSeqNo);
+            retransmitRange.setFromSeqNo(prevNextSeqNo);
+            retransmitRange.setTimestamp(getTimeAsNanos());
+            retransmitRange.setCount(newNextSeqNo - prevNextSeqNo);
+            doSendRetransmitRequest(retransmitRange);
             break;
           case IDEMPOTENT:
             doSendNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo);
@@ -430,7 +561,7 @@ public abstract class Session {
             // do nothing
             break;
         }
-        nextSeqNoAccepted.set(newNextSeqNo);
+        nextSeqNoAccepted = newNextSeqNo;
       } catch (IOException | InterruptedException e) {
         disconnected();
       }
@@ -446,19 +577,17 @@ public abstract class Session {
   protected abstract void doSendNotApplied(long fromSeqNo, long count)
       throws IOException, InterruptedException;
 
-  protected abstract void doSendRetransmitRequest(long fromSeqNo, long count)
+  protected abstract void doSendRetransmission(SequenceRange range)
+      throws IOException, InterruptedException;
+
+  protected abstract void doSendRetransmitRequest(SequenceRange range)
       throws IOException, InterruptedException;
 
   protected abstract MessageType getMessageType(ByteBuffer buffer);
 
   protected abstract long getNextSequenceNumber(ByteBuffer buffer);
 
-  /**
-   * A time relative to an internal clock; not guaranteed to be wall clock time.
-   * 
-   * @return current timestamp as nanoseconds
-   */
-  protected static long getTimeAsNanos() {
-    return System.nanoTime();
-  }
+  protected abstract void getRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range);
+
+  protected abstract void getRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range);
 }

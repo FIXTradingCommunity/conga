@@ -18,6 +18,7 @@ package io.fixprotocol.conga.buffer;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.ListIterator;
 
 import org.junit.Before;
@@ -112,6 +113,17 @@ public class BufferCacheTest {
       assertEquals(i, number);
       i++;
     }
+  }
+  
+  @Test
+  public void subList() {
+    for (int i=0; i < 20; i++) {
+      ByteBuffer src = createBuffer(Integer.toString(i));
+      assertTrue(cache.add(src));
+    }
+    assertEquals(20, cache.size());
+    List<ByteBuffer> list = cache.subList(17, 19);
+    assertEquals(2, list.size());
   }
   
   @Test(expected=IndexOutOfBoundsException.class)

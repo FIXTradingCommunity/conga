@@ -22,10 +22,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
  * A cache of recent message buffers
+ * <p>
+ * Null element values not accepted.
  * <p>
  * Not persistent. In this implementation, the size of the cache is preallocated and old messages
  * are overwritten by new ones.
@@ -118,7 +122,7 @@ public class BufferCache implements List<ByteBuffer> {
   public static final int DEFAULT_CACHE_CAPACITY = 16;
 
   private final ByteBuffer[] cache;
-  private int maxIndex = -1;
+  private final AtomicInteger maxIndex = new AtomicInteger(-1);
 
   public BufferCache() {
     this(DEFAULT_CACHE_CAPACITY, DEFAULT_BUFFER_CAPACITY);
@@ -136,47 +140,40 @@ public class BufferCache implements List<ByteBuffer> {
     if (null == src) {
       return false;
     }
-    maxIndex++;
-    int position = position(maxIndex);
+    int maxVal = maxIndex.incrementAndGet();
+    int position = position(maxVal);
     ByteBuffer element = getElement(position);
     copyBuffer(src, element);
     return true;
   }
 
   /**
-   * Only supports appending new buffers at higher indexes
-   * <p>
-   * Warning: if intervening buffers are not populated by calling {@link #set(int, ByteBuffer)},
-   * they will remain empty.
+   * Insert a new buffer value. The optional operation is supported only under the condition that
+   * {@code index} is the next expected value.
    * 
-   * @param index sequence number of the added buffer; must be equal to or higher than
-   *        {@link #size()} but not greater than size() + cache capacity
-   * @param src buffer to append
-   * @throws IndexOutOfBoundsException if index is out of range
+   * @param index index at which the specified element is to be inserted
+   * @param src buffer to be copied into the cache
    */
   @Override
   public void add(int index, ByteBuffer src) {
-    if ((index < getMinimumAvailableIndex()) || (index > (getMinimumAvailableIndex() + cache.length))) {
-      throw new IndexOutOfBoundsException();
+    Objects.requireNonNull(src);
+    if (maxIndex.compareAndSet(index - 1, index)) {
+      int position = position(index);
+      ByteBuffer element = getElement(position);
+      copyBuffer(src, element);
     } else {
-      int max = getMaximumAvailableIndex();
-      // Clear intervening buffers
-      for (int i = max; i < index; i++) {
-        int position = position(i);
-        ByteBuffer element = getElement(position);
-        element.clear();
-      }
-      maxIndex = index;
-      set(index, src);
+      throw new IndexOutOfBoundsException("Index is not next value");
     }
   }
 
   @Override
   public boolean addAll(Collection<? extends ByteBuffer> c) {
     boolean modified = false;
-    for (ByteBuffer buffer : c) {
-      add(buffer);
-      modified = true;
+      if (c != null) {
+      for (ByteBuffer buffer : c) {
+        add(buffer);
+        modified = true;
+      }
     }
     return modified;
   }
@@ -184,18 +181,20 @@ public class BufferCache implements List<ByteBuffer> {
   @Override
   public boolean addAll(int index, Collection<? extends ByteBuffer> c) {
     boolean modified = false;
-    int i = index;
-    for (ByteBuffer buffer : c) {
-      add(i, buffer);
-      i++;
-      modified = true;
+    if (c != null) {
+      int i = index;
+      for (ByteBuffer buffer : c) {
+        add(i, buffer);
+        i++;
+        modified = true;
+      }
     }
     return modified;
   }
 
   @Override
   public void clear() {
-    maxIndex = -1;
+    maxIndex.set(-1);
   }
 
   /**
@@ -298,6 +297,7 @@ public class BufferCache implements List<ByteBuffer> {
 
   @Override
   public ByteBuffer set(int index, ByteBuffer src) {
+    Objects.requireNonNull(src);
     if (index < getMinimumAvailableIndex() || index > getMaximumAvailableIndex()) {
       throw new IndexOutOfBoundsException();
     } else {
@@ -320,13 +320,8 @@ public class BufferCache implements List<ByteBuffer> {
     }
     List<ByteBuffer> array = new ArrayList<>(toIndex - fromIndex);
     ListIterator<java.nio.ByteBuffer> iter = listIterator(fromIndex);
-    int j = 0;
     while (iter.hasNext()) {
-      array.set(j, iter.next().duplicate());
-      j++;
-    }
-    for (; j < array.size(); j++) {
-      array.set(j, ByteBuffer.allocate(0));
+      array.add(iter.next().duplicate());
     }
     return array;
   }
@@ -371,13 +366,14 @@ public class BufferCache implements List<ByteBuffer> {
   }
 
   private int getMaximumAvailableIndex() {
-    return maxIndex;
+    return maxIndex.get();
   }
 
   private int getMinimumAvailableIndex() {
-    if (maxIndex > cache.length) {
-      return maxIndex - cache.length + 1;
-    } else if (maxIndex >= 0) {
+    int maxVal = maxIndex.get();
+    if (maxVal > cache.length) {
+      return maxVal - cache.length + 1;
+    } else if (maxVal >= 0) {
       return 0;
     } else {
       return -1;
