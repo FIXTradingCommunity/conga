@@ -29,6 +29,7 @@ import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceEncoder;
+import io.fixprotocol.conga.session.SequenceRange;
 import io.fixprotocol.conga.session.Session;
 
 /**
@@ -59,7 +60,7 @@ public abstract class SbeSession extends Session {
   private final SequenceEncoder sequenceEncoder = new SequenceEncoder();
   private final UnsafeBuffer sequenceMutableBuffer = new UnsafeBuffer();
 
-  protected SbeSession(@SuppressWarnings("rawtypes") Builder builder) {
+  protected SbeSession(Builder<?> builder) {
     super(builder);
     init();
   }

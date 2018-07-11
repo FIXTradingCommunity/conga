@@ -78,7 +78,10 @@ public class ClientSession extends SbeSession {
       throw e;
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof IOException) {
+      if (cause instanceof IllegalStateException) {
+        // Close sent
+        throw new IOException(cause);
+      } else if (cause instanceof IOException) {
         throw (IOException) cause;
       } else {
         throw new RuntimeException(cause);
@@ -86,7 +89,6 @@ public class ClientSession extends SbeSession {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-
   }
 
 }

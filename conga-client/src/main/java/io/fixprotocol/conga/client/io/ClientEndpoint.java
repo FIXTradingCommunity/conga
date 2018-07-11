@@ -18,16 +18,21 @@ package io.fixprotocol.conga.client.io;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.security.Principal;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSessionContext;
 
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+
 import jdk.incubator.http.HttpClient;
 import jdk.incubator.http.HttpTimeoutException;
 import jdk.incubator.http.WebSocket;
@@ -42,6 +47,7 @@ import jdk.incubator.http.WebSocketHandshakeException;
  */
 public class ClientEndpoint implements AutoCloseable {
 
+  private final AtomicBoolean connectedCriticalSection = new AtomicBoolean();
 
   /**
    * 
@@ -63,16 +69,27 @@ public class ClientEndpoint implements AutoCloseable {
 
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
       // WebSocket implementation automatically sends close response
-      webSocket.request(1);
-      ClientEndpoint.this.webSocketRef.set(null);
-      return null;
+      while (!connectedCriticalSection.compareAndSet(false, true)) {
+        Thread.yield();
+      }
+      try {
+        this.webSocket = null;
+        return null;
+      } finally {
+        connectedCriticalSection.compareAndSet(true, false);
+      }
     }
 
     public void onError(WebSocket webSocket, Throwable error) {
       // the session is already torn down; clean up the reference
-      webSocket.request(1);
-      error.printStackTrace();
-      ClientEndpoint.this.webSocketRef.set(null);
+      while (!connectedCriticalSection.compareAndSet(false, true)) {
+        Thread.yield();
+      }
+      try {
+        this.webSocket = null;
+      } finally {
+        connectedCriticalSection.compareAndSet(true, false);
+      }
     }
 
     public void onOpen(WebSocket webSocket) {
@@ -82,9 +99,10 @@ public class ClientEndpoint implements AutoCloseable {
   };
 
   private final RingBufferSupplier ringBuffer;
+  private String source;
   private final long timeoutSeconds;
   private final URI uri;
-  private final AtomicReference<WebSocket> webSocketRef = new AtomicReference<>();
+  private WebSocket webSocket = null;
 
   /**
    * Construct a WebSocket client endpoint
@@ -101,10 +119,20 @@ public class ClientEndpoint implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    final WebSocket webSocket = webSocketRef.get();
-    if (null != webSocket) {
-      webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(timeoutSeconds, TimeUnit.SECONDS);
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
+      Thread.yield();
     }
+    try {
+      if (null != webSocket) {
+        webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(timeoutSeconds, TimeUnit.SECONDS);
+      }
+    } finally {
+      connectedCriticalSection.compareAndSet(true, false);
+    }
+  }
+
+  public String getSource() {
+    return source;
   }
 
   /**
@@ -129,9 +157,23 @@ public class ClientEndpoint implements AutoCloseable {
    * 
    */
   public void open() throws Exception {
-    webSocketRef.compareAndSet(null,
-        HttpClient.newHttpClient().newWebSocketBuilder().subprotocols("binary")
-            .connectTimeout(Duration.ofSeconds(timeoutSeconds)).buildAsync(uri, listener).get());
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      if (webSocket == null) {
+        final HttpClient httpClient = HttpClient.newHttpClient();
+        webSocket = httpClient.newWebSocketBuilder().subprotocols("binary")
+            .connectTimeout(Duration.ofSeconds(timeoutSeconds)).buildAsync(uri, listener).get();
+        final SSLSessionContext clientSessionContext = httpClient.sslContext().getClientSessionContext();
+        byte[] id = clientSessionContext.getIds().nextElement();
+        SSLSession sslSession = clientSessionContext.getSession(id);
+        Principal principal = sslSession.getLocalPrincipal();
+        source = (null != principal) ? principal.getName() : new String(id);
+      }
+    } finally {
+      connectedCriticalSection.compareAndSet(true, false);
+    }
   }
 
   /**
@@ -146,7 +188,6 @@ public class ClientEndpoint implements AutoCloseable {
    * @throws IOException if an I/O error occurs or the WebSocket is not open
    */
   public CompletableFuture<ByteBuffer> send(ByteBuffer data) throws Exception {
-    final WebSocket webSocket = webSocketRef.get();
     if (null != webSocket) {
       CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
       return future.thenCompose(w -> CompletableFuture.completedFuture(data));
@@ -158,8 +199,9 @@ public class ClientEndpoint implements AutoCloseable {
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
-    builder.append("ClientEndpoint [timeoutSeconds=").append(timeoutSeconds).append(", uri=")
-        .append(uri).append(", webSocket=").append(webSocketRef.get()).append("]");
+    builder.append("ClientEndpoint [source=").append(source).append(", timeoutSeconds=")
+        .append(timeoutSeconds).append(", uri=").append(uri).append(", webSocket=")
+        .append(webSocket).append("]");
     return builder.toString();
   }
 

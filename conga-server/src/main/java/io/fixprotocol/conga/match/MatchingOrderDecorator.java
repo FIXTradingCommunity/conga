@@ -42,8 +42,6 @@ class MatchingOrderDecorator extends WorkingOrder {
    * Wrap an order with override behavior for matching
    * @param order order to wrap
    * @param userId user that originated order
-   * @param orderId assigned order ID
-   * @param entryTime assigned entry time
    */
   MatchingOrderDecorator(NewOrderSingle order, String userId) {
     super(order, userId, "None", Instant.MAX);

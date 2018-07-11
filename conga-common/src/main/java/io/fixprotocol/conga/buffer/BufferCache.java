@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * A cache of recent message buffers
  * <p>
- * Null element values not accepted.
+ * Null element values are not accepted.
  * <p>
  * Not persistent. In this implementation, the size of the cache is preallocated and old messages
  * are overwritten by new ones.
@@ -122,12 +122,21 @@ public class BufferCache implements List<ByteBuffer> {
   public static final int DEFAULT_CACHE_CAPACITY = 16;
 
   private final ByteBuffer[] cache;
-  private final AtomicInteger maxIndex = new AtomicInteger(-1);
+  private final AtomicInteger maxIndex = new AtomicInteger(0);
 
+  /**
+   * Constructor with default buffer size
+   */
   public BufferCache() {
     this(DEFAULT_CACHE_CAPACITY, DEFAULT_BUFFER_CAPACITY);
   }
 
+  /**
+   * Constructor with dimensions for needed capacity
+   * 
+   * @param cacheCapacity the number of buffers in this cache
+   * @param bufferCapacity the capacity of each {@code ByteBuffer}
+   */
   public BufferCache(int cacheCapacity, int bufferCapacity) {
     cache = new ByteBuffer[cacheCapacity];
     for (int i = 0; i < cache.length; i++) {

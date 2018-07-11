@@ -169,7 +169,9 @@ public class OrderBook {
   /**
    * Removes an order from this OrderBook
    * 
-   * @param order an order with matching key fields
+   * @param side buy or sell side
+   * @param clOrdId client order ID
+   * @param userId order originator
    * @return Returns the removed order or {@code null} if it is not found
    */
   public WorkingOrder removeOrder(Side side, String clOrdId, String userId) {

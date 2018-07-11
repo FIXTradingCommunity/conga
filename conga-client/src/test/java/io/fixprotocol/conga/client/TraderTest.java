@@ -127,12 +127,13 @@ public class TraderTest {
 
     assertEquals(3, listener.getCount());
 
-    // System.out.println(trader.toString());
+    System.out.println(trader.toString());
   }
 
   @Test
   public void quiescent() throws InterruptedException {
     Thread.sleep(10000);
+    //System.out.println(trader.toString());
   }
 
 }

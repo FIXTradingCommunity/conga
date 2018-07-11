@@ -43,6 +43,7 @@ import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
+import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.ProtocolViolationException;
 import io.fixprotocol.conga.session.Session;
 
@@ -148,22 +149,22 @@ public class Trader implements AutoCloseable {
   private final Consumer<Throwable> errorListener;
   private ApplicationMessageConsumer messageListener = null;
   private final MutableRequestMessageFactory requestFactory =
-      new SbeMutableRequestMessageFactory(bufferSupplier);
-  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory(); 
+      new SbeMutableRequestMessageFactory(bufferSupplier); 
+  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
-  private final int timeoutSeconds;
-  private final Timer timer = new Timer("Client-timer", true);
   
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
       session.messageReceived(buffer);
     } catch (ProtocolViolationException | MessageException e) {
-      //Trader.this.errorListener.accept(e);
+      if (getErrorListener() != null) {
+        getErrorListener().accept(e);
+      }
+     session.disconnected();
     }
   };
-  
   // Consumes application messages from Session
   private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -177,6 +178,9 @@ public class Trader implements AutoCloseable {
     
   };
   
+  private final int timeoutSeconds; 
+  private final Timer timer = new Timer("Client-timer", true);
+
   private Trader(Builder builder) {
     this.messageListener = Objects.requireNonNull(builder.messageListener, "Message listener not set");
     this.errorListener = builder.errorListener;
@@ -184,7 +188,7 @@ public class Trader implements AutoCloseable {
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
   }
-
+  
   public void close() {
     try {
       endpoint.close();
@@ -226,11 +230,16 @@ public class Trader implements AutoCloseable {
     ringBuffer.start();
     if (session == null) {
       UUID uuid = UUID.randomUUID();
-      this.session = ClientSession.builder().sessionId(Session.UUIDAsBytes(uuid)).timer(timer)
-          .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds)).sessionMessageConsumer(sessionMessageConsumer).build();
+      this.session = ClientSession.builder()
+          .sessionId(Session.UUIDAsBytes(uuid))
+          .timer(timer)
+          .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
+          .sessionMessageConsumer(sessionMessageConsumer)
+          .inboundFlowType(FlowType.RECOVERABLE)
+          .build();
     }
     endpoint.open();
-    session.connected(endpoint, null);
+    session.connected(endpoint, endpoint.getSource());
   }
 
   /**
@@ -242,7 +251,8 @@ public class Trader implements AutoCloseable {
    * @throws InterruptedException if the current thread is interrupted
    * @throws IOException if an I/O error occurs
    */
-  public long send(MutableMessage message) throws IOException, InterruptedException{
+  public long send(MutableMessage message) throws IOException, InterruptedException {
+    Objects.requireNonNull(message);
     try {
       return session.sendApplicationMessage(message.toBuffer());
     } finally {
@@ -256,6 +266,10 @@ public class Trader implements AutoCloseable {
     builder.append("Trader [session=").append(session).append(", endpoint=").append(endpoint)
         .append(", timeoutSeconds=").append(timeoutSeconds).append("]");
     return builder.toString();
+  }
+
+  Consumer<Throwable> getErrorListener() {
+    return errorListener;
   }
 
 }

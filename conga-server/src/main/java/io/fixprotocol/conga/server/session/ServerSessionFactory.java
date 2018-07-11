@@ -16,7 +16,10 @@
 package io.fixprotocol.conga.server.session;
 
 import java.util.Timer;
+import java.util.concurrent.Executor;
 
+import io.fixprotocol.conga.buffer.BufferCache;
+import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.SessionFactory;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
 
@@ -29,18 +32,25 @@ public class ServerSessionFactory implements SessionFactory {
   private final long heartbeatInterval;
   private final Timer timer;
   private final SessionMessageConsumer sessionMessageConsumer;
+  private final Executor executor;
 
   public ServerSessionFactory(SessionMessageConsumer sessionMessageConsumer, Timer timer,
-      long heartbeatInterval) {
+      Executor executor, long heartbeatInterval) {
     this.sessionMessageConsumer = sessionMessageConsumer;
     this.timer = timer;
+    this.executor = executor;
     this.heartbeatInterval = heartbeatInterval;
   }
 
   @Override
   public ServerSession newInstance() {
-    return ServerSession.builder().timer(timer).heartbeatInterval(heartbeatInterval)
-        .sessionMessageConsumer(sessionMessageConsumer).build();
+    return ServerSession.builder().timer(timer)
+        .heartbeatInterval(heartbeatInterval)
+        .sessionMessageConsumer(sessionMessageConsumer)
+        .outboundFlowType(FlowType.RECOVERABLE)
+        .sendCache(new BufferCache())
+        .executor(executor)
+        .build();
   }
 
 }

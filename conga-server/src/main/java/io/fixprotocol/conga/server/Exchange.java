@@ -19,8 +19,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Timer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
@@ -79,18 +83,12 @@ public class Exchange implements AutoCloseable {
   }
 
   private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
+  
+  private Consumer<Throwable> errorListener = (t) -> t.printStackTrace(System.err);
+  
+  private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private String host = DEFAULT_HOST;
 
-  private final RingBufferSupplier incomingRingBuffer;
-  private final MatchEngine matchEngine;
-  private final BufferSupplier outgoingBufferSupplier = new BufferPool();
-  private int port = DEFAULT_PORT;
-  private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
-  private ExchangeSocketServer server = null;
-  private final ServerSessions sessions;
-  private final Timer timer = new Timer("Server-timer", true);
-
-  
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = new BiConsumer<>() {
 
@@ -100,12 +98,16 @@ public class Exchange implements AutoCloseable {
       try {
       session.messageReceived(buffer);
       } catch (ProtocolViolationException | MessageException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        errorListener.accept(e);
       }
     }
   };
-  
+  private final RingBufferSupplier incomingRingBuffer;
+  private final MatchEngine matchEngine;
+  private final BufferSupplier outgoingBufferSupplier = new BufferPool();
+  private int port = DEFAULT_PORT;
+  private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
+  private ExchangeSocketServer server = null;
   // Consumes application messages from Session
   private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -113,12 +115,15 @@ public class Exchange implements AutoCloseable {
       message = requestMessageFactory.wrap(buffer);
       match(source, message);
     } catch (MessageException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      errorListener.accept(e);
     }
     
   };
+
   
+  private final ServerSessions sessions;
+  
+  private final Timer timer = new Timer("Server-timer", true);
   /**
    * Construct new exchange server.
    *
@@ -141,11 +146,13 @@ public class Exchange implements AutoCloseable {
     this.incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
     this.matchEngine =
         new MatchEngine(new SbeMutableResponseMessageFactory(outgoingBufferSupplier));
-    this.sessions = new ServerSessions(new ServerSessionFactory(sessionMessageConsumer, timer, heartbeatInterval));
+    this.sessions = new ServerSessions(new ServerSessionFactory(sessionMessageConsumer,
+        timer, executor, heartbeatInterval));
   }
-
+  
   @Override
   public void close() {
+    executor.shutdown();
     server.stop();
     incomingRingBuffer.stop();
   }
@@ -186,6 +193,10 @@ public class Exchange implements AutoCloseable {
         .port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).sessions(sessions)
         .build();
     server.run();
+  }
+
+  public void setErrorListener(Consumer<Throwable> errorListener) {
+    this.errorListener = Objects.requireNonNull(errorListener);
   }
 
 }
