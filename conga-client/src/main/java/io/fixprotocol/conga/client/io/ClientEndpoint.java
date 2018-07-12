@@ -73,7 +73,7 @@ public class ClientEndpoint implements AutoCloseable {
         Thread.yield();
       }
       try {
-        this.webSocket = null;
+        ClientEndpoint.this.webSocket = null;
         return null;
       } finally {
         connectedCriticalSection.compareAndSet(true, false);
@@ -86,7 +86,7 @@ public class ClientEndpoint implements AutoCloseable {
         Thread.yield();
       }
       try {
-        this.webSocket = null;
+        ClientEndpoint.this.webSocket = null;
       } finally {
         connectedCriticalSection.compareAndSet(true, false);
       }

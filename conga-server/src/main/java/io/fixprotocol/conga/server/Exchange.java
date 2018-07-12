@@ -83,9 +83,7 @@ public class Exchange implements AutoCloseable {
   }
 
   private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
-  
   private Consumer<Throwable> errorListener = (t) -> t.printStackTrace(System.err);
-  
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private String host = DEFAULT_HOST;
 
@@ -108,6 +106,7 @@ public class Exchange implements AutoCloseable {
   private int port = DEFAULT_PORT;
   private final RequestMessageFactory requestMessageFactory = new SbeRequestMessageFactory();
   private ExchangeSocketServer server = null;
+  
   // Consumes application messages from Session
   private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -117,13 +116,11 @@ public class Exchange implements AutoCloseable {
     } catch (MessageException e) {
       errorListener.accept(e);
     }
-    
   };
 
-  
   private final ServerSessions sessions;
-  
   private final Timer timer = new Timer("Server-timer", true);
+  
   /**
    * Construct new exchange server.
    *

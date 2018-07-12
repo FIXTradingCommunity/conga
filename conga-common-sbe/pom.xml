@@ -11,7 +11,7 @@
 	<name>${project.groupId}:${project.artifactId}</name>
 
 	<properties>
-		<real-logic.version>1.8.1</real-logic.version>
+		<real-logic.version>1.8.3</real-logic.version>
 	</properties>
 
 	<dependencies>

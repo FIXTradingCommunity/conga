@@ -122,7 +122,7 @@ public class BufferCache implements List<ByteBuffer> {
   public static final int DEFAULT_CACHE_CAPACITY = 16;
 
   private final ByteBuffer[] cache;
-  private final AtomicInteger maxIndex = new AtomicInteger(0);
+  private final AtomicInteger maxIndex = new AtomicInteger(-1);
 
   /**
    * Constructor with default buffer size

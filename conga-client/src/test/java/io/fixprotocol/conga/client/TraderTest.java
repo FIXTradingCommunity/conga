@@ -125,9 +125,9 @@ public class TraderTest {
 
     Thread.sleep(1000);
 
+    //System.out.println(trader.toString());
     assertEquals(3, listener.getCount());
 
-    System.out.println(trader.toString());
   }
 
   @Test

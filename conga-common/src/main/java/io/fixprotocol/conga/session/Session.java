@@ -244,6 +244,7 @@ public abstract class Session {
   private long lastRequestTimestamp = 0;
   private long lastRetransSeqNoToAccept;
   private long nextRetransSeqNoReceived;
+  // high water mark
   private long nextSeqNoAccepted = 1L;
   private long nextSeqNoReceived = 1L;
   private final AtomicLong nextSeqNoSent = new AtomicLong(1L);
@@ -272,6 +273,11 @@ public abstract class Session {
     }
     if (outboundFlowType == FlowType.RECOVERABLE && executor == null) {
       throw new IllegalArgumentException("No Executor for asynchronous retransmission");
+    }
+    
+    // Advance from index 0 in cache to first message sequence no. which is 1-based
+    if (this.sendCache != null) {
+      this.sendCache.add(ByteBuffer.allocate(0));
     }
   }
 
@@ -512,7 +518,7 @@ public abstract class Session {
   protected void applicationMessageReceived(ByteBuffer buffer) {
     long seqNo = nextSeqNoReceived;
     nextSeqNoReceived++;
-    if (nextSeqNoAccepted == seqNo) {
+    if (seqNo >= nextSeqNoAccepted) {
       sessionMessageConsumer.accept(principal, buffer, seqNo);
       nextSeqNoAccepted++;
     }
@@ -600,8 +606,7 @@ public abstract class Session {
       } catch (IOException | InterruptedException e) {
         disconnected();
       }
-    } else if (newNextSeqNo < nextSeqNoAccepted) {
-      throw new ProtocolViolationException(String.format("Sequence number %d too low", newNextSeqNo) );
     }
+    // if seqNo is too low, just ignore messages until high water mark is reached
   }
 }
