@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import io.fixprotocol.conga.messages.ApplicationMessageConsumer;
@@ -85,6 +86,7 @@ public class TraderTest {
     trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
         .messageListener(listener).errorListener(errorHandler).build();
     trader.open();
+    Thread.sleep(1000L);
   }
 
   /**
@@ -99,6 +101,7 @@ public class TraderTest {
 
   @Test
   public void selfTrade() throws Exception {
+    //System.out.println(trader.toString());
     MutableNewOrderSingle order1 = trader.createOrder();
     order1.setClOrdId("C1");
     order1.setOrderQty(3);
@@ -127,7 +130,6 @@ public class TraderTest {
 
     //System.out.println(trader.toString());
     assertEquals(3, listener.getCount());
-
   }
 
   @Test

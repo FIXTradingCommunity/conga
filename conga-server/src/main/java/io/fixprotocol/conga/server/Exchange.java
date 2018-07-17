@@ -95,7 +95,7 @@ public class Exchange implements AutoCloseable {
       final ServerSession session = sessions.getSession(source);
       try {
       session.messageReceived(buffer);
-      } catch (ProtocolViolationException | MessageException e) {
+      } catch (ProtocolViolationException | MessageException | IOException | InterruptedException e) {
         errorListener.accept(e);
       }
     }

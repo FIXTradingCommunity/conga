@@ -158,7 +158,7 @@ public class Trader implements AutoCloseable {
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
       session.messageReceived(buffer);
-    } catch (ProtocolViolationException | MessageException e) {
+    } catch (ProtocolViolationException | MessageException | IOException | InterruptedException e) {
       if (getErrorListener() != null) {
         getErrorListener().accept(e);
       }

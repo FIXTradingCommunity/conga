@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
+import io.fixprotocol.conga.session.EstablishmentReject;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 
@@ -75,6 +76,11 @@ public class ServerSession extends SbeSession {
   @Override
   protected void doSendMessage(ByteBuffer buffer) throws IOException {
     transport.send(buffer);
+  }
+
+  @Override
+  protected boolean isClientSession() {
+    return false;
   }
 
 }

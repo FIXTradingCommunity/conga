@@ -20,6 +20,13 @@ import java.nio.ByteBuffer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentAckDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentAckEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectCode;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedEncoder;
@@ -29,8 +36,10 @@ import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceEncoder;
+import io.fixprotocol.conga.session.EstablishmentReject;
 import io.fixprotocol.conga.session.SequenceRange;
 import io.fixprotocol.conga.session.Session;
+import io.fixprotocol.conga.session.SessionAttributes;
 
 /**
  * FIXP session with SBE encoding
@@ -43,6 +52,18 @@ import io.fixprotocol.conga.session.Session;
 public abstract class SbeSession extends Session {
 
   private final UnsafeBuffer directBuffer = new UnsafeBuffer();
+  private ByteBuffer establishBuffer;
+  private EstablishDecoder establishDecoder;
+  private EstablishEncoder establishEncoder;
+  private ByteBuffer establishmentAckBuffer;
+  private EstablishmentAckDecoder establishmentAckDecoder;
+  private EstablishmentAckEncoder establishmentAckEncoder;
+  private UnsafeBuffer establishmentAckMutableBuffer;
+  private ByteBuffer establishmentRejectBuffer;
+  private EstablishmentRejectDecoder establishmentRejectDecoder;
+  private EstablishmentRejectEncoder establishmentRejectEncoder;
+  private UnsafeBuffer establishmentRejectMutableBuffer;
+  private UnsafeBuffer establishMutableBuffer;
   private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
   private final ByteBuffer notAppliedBuffer = ByteBuffer.allocateDirect(32);
   private final NotAppliedEncoder notAppliedEncoder = new NotAppliedEncoder();
@@ -67,6 +88,31 @@ public abstract class SbeSession extends Session {
 
   private void init() {
     final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+    if (isClientSession()) {
+      establishBuffer = ByteBuffer.allocateDirect(256);
+      establishEncoder = new EstablishEncoder();
+      establishMutableBuffer = new UnsafeBuffer();
+      establishMutableBuffer.wrap(establishBuffer);
+      establishEncoder.wrapAndApplyHeader(establishMutableBuffer, 0, headerEncoder);
+
+      establishmentAckDecoder = new EstablishmentAckDecoder();
+      establishmentRejectDecoder = new EstablishmentRejectDecoder();
+    } else {
+      establishDecoder = new EstablishDecoder();
+
+      establishmentAckBuffer = ByteBuffer.allocateDirect(256);
+      establishmentAckEncoder = new EstablishmentAckEncoder();
+      establishmentAckMutableBuffer = new UnsafeBuffer();
+      establishmentAckMutableBuffer.wrap(establishmentAckBuffer);
+      establishmentAckEncoder.wrapAndApplyHeader(establishmentAckMutableBuffer, 0, headerEncoder);
+
+      establishmentRejectBuffer = ByteBuffer.allocateDirect(256);
+      establishmentRejectEncoder = new EstablishmentRejectEncoder();
+      establishmentRejectMutableBuffer = new UnsafeBuffer();
+      establishmentRejectMutableBuffer.wrap(establishmentRejectBuffer);
+      establishmentRejectEncoder.wrapAndApplyHeader(establishmentRejectMutableBuffer, 0,
+          headerEncoder);
+    }
     sequenceMutableBuffer.wrap(sequenceBuffer);
     sequenceEncoder.wrapAndApplyHeader(sequenceMutableBuffer, 0, headerEncoder);
     sequenceBuffer.limit(headerEncoder.encodedLength() + sequenceEncoder.encodedLength());
@@ -80,7 +126,6 @@ public abstract class SbeSession extends Session {
     retransmissionBuffer
         .limit(headerEncoder.encodedLength() + retransmissionEncoder.encodedLength());
 
-
     for (int i = 0; i < RetransmitRequestEncoder.sessionIdEncodingLength(); i++) {
       retransmitRequestEncoder.sessionId(i, getSessionId()[i]);
     }
@@ -88,10 +133,56 @@ public abstract class SbeSession extends Session {
         .limit(headerEncoder.encodedLength() + retransmitRequestEncoder.encodedLength());
   }
 
+  protected void doSendEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
+      long nextSeqNo, byte[] credentials) throws IOException, InterruptedException {
+    if (!isClientSession()) {
+      throw new IllegalStateException("Establish invoked for server session");
+    }
+    for (int i = 0; i < EstablishEncoder.sessionIdLength(); i++) {
+      establishEncoder.sessionId(i, sessionId[i]);
+    }
+    establishEncoder.timestamp(timestamp).keepaliveInterval(heartbeatInterval).nextSeqNo(nextSeqNo);
+    if (credentials != null) {
+      establishEncoder.putCredentials(credentials, 0, credentials.length);
+    }
+    establishBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + establishEncoder.encodedLength());
+    doSendMessage(establishBuffer.duplicate());
+  }
+
   @Override
-  protected void doSendHeartbeat(long nextSeqNo) throws IOException, InterruptedException {
-    sequenceEncoder.nextSeqNo(nextSeqNo);
-    doSendMessage(sequenceBuffer.duplicate());
+  protected void doSendEstablishAck(byte[] sessionId, long timestamp, long heartbeatInterval,
+      long nextSeqNo) throws IOException, InterruptedException {
+    if (isClientSession()) {
+      throw new IllegalStateException("Establish Ack invoked for client session");
+    }
+    for (int i = 0; i < EstablishmentAckEncoder.sessionIdLength(); i++) {
+      establishmentAckEncoder.sessionId(i, getSessionId()[i]);
+    }
+    establishmentAckEncoder.requestTimestamp(timestamp);
+    establishmentAckEncoder.keepaliveInterval(heartbeatInterval);
+    establishmentAckEncoder.nextSeqNo(nextSeqNo);
+    establishmentAckEncoder
+        .limit(MessageHeaderEncoder.ENCODED_LENGTH + establishmentAckEncoder.encodedLength());
+
+    doSendMessage(establishmentAckBuffer.duplicate());
+  }
+
+  @Override
+  protected void doSendEstablishReject(byte[] sessionId, long timestamp,
+      EstablishmentReject rejectCode, byte[] reason) throws IOException, InterruptedException {
+    if (isClientSession()) {
+      throw new IllegalStateException("Establish Reject invoked for client session");
+    }
+    for (int i = 0; i < EstablishmentRejectEncoder.sessionIdLength(); i++) {
+      establishmentRejectEncoder.sessionId(i, getSessionId()[i]);
+    }
+    establishmentRejectEncoder.requestTimestamp(timestamp);
+    establishmentRejectEncoder.code(EstablishmentRejectCode.valueOf(rejectCode.name()));
+    establishmentRejectEncoder.putReason(reason, 0, reason.length);
+    establishmentRejectEncoder
+        .limit(MessageHeaderEncoder.ENCODED_LENGTH + establishmentRejectEncoder.encodedLength());
+
+    doSendMessage(establishmentRejectBuffer.duplicate());
   }
 
   protected void doSendNotApplied(long fromSeqNo, long count)
@@ -126,6 +217,44 @@ public abstract class SbeSession extends Session {
   }
 
   @Override
+  protected void doSendSequence(long nextSeqNo) throws IOException, InterruptedException {
+    sequenceEncoder.nextSeqNo(nextSeqNo);
+    doSendMessage(sequenceBuffer.duplicate());
+  }
+
+  @Override
+  protected void getEstablishmentAckSessionAttributes(ByteBuffer buffer,
+      SessionAttributes sessionAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    establishmentAckDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+
+    sessionAttributes.timestamp(establishmentAckDecoder.requestTimestamp());
+    sessionAttributes.keepAliveInterval(establishmentAckDecoder.keepaliveInterval());
+    sessionAttributes.nextSeqNo(establishmentAckDecoder.nextSeqNo());
+  }
+
+  @Override
+  protected void getEstablishSessionAttributes(ByteBuffer buffer,
+      SessionAttributes sessionAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    establishDecoder.wrap(directBuffer, headerDecoder.encodedLength(), headerDecoder.blockLength(),
+        headerDecoder.version());
+
+    sessionAttributes.credentials(new byte[establishDecoder.credentialsLength()]);
+    establishDecoder.getCredentials(sessionAttributes.getCredentials(), 0,
+        sessionAttributes.getCredentials().length);
+    for (int i = 0; i < EstablishDecoder.sessionIdEncodingLength(); i++) {
+      sessionAttributes.getSessionId()[i] = (byte) establishDecoder.sessionId(i);
+    }
+    sessionAttributes.timestamp(establishDecoder.timestamp());
+    sessionAttributes.keepAliveInterval(establishDecoder.keepaliveInterval());
+    sessionAttributes.nextSeqNo(establishDecoder.nextSeqNo());
+  }
+
+  @Override
   protected MessageType getMessageType(ByteBuffer buffer) {
     MessageType messageType = MessageType.UNKNOWN;
     directBuffer.wrap(buffer);
@@ -140,6 +269,21 @@ public abstract class SbeSession extends Session {
           break;
         case NotAppliedEncoder.TEMPLATE_ID:
           messageType = MessageType.NOT_APPLIED;
+          break;
+        case EstablishEncoder.TEMPLATE_ID:
+          messageType = MessageType.ESTABLISH;
+          break;
+        case EstablishmentAckEncoder.TEMPLATE_ID:
+          messageType = MessageType.ESTABLISHMENT_ACK;
+          break;
+        case EstablishmentRejectEncoder.TEMPLATE_ID:
+          messageType = MessageType.ESTABLISHMENT_REJECT;
+          break;
+        case RetransmissionEncoder.TEMPLATE_ID:
+          messageType = MessageType.RETRANSMISSION;
+          break;
+        case RetransmitRequestEncoder.TEMPLATE_ID:
+          messageType = MessageType.RETRANSMIT_REQUEST;
           break;
       }
     }
@@ -162,9 +306,8 @@ public abstract class SbeSession extends Session {
     headerDecoder.wrap(directBuffer, 0);
     retransmissionDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
         headerDecoder.blockLength(), headerDecoder.version());
-    range.setTimestamp(retransmissionDecoder.requestTimestamp());
-    range.setFromSeqNo(retransmissionDecoder.nextSeqNo());
-    range.setCount(retransmissionDecoder.count());
+    range.timestamp(retransmissionDecoder.requestTimestamp())
+        .fromSeqNo(retransmissionDecoder.nextSeqNo()).count(retransmissionDecoder.count());
   }
 
   @Override
@@ -173,8 +316,7 @@ public abstract class SbeSession extends Session {
     headerDecoder.wrap(directBuffer, 0);
     retransmitRequestDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
         headerDecoder.blockLength(), headerDecoder.version());
-    range.setTimestamp(retransmitRequestDecoder.timestamp());
-    range.setFromSeqNo(retransmitRequestDecoder.fromSeqNo());
-    range.setCount(retransmitRequestDecoder.count());
+    range.timestamp(retransmitRequestDecoder.timestamp())
+        .fromSeqNo(retransmitRequestDecoder.fromSeqNo()).count(retransmitRequestDecoder.count());
   }
 }

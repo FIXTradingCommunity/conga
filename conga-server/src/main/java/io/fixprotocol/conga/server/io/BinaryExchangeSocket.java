@@ -37,6 +37,8 @@ import io.fixprotocol.conga.server.session.ServerSessions;
  * <p>
  * The principal of a request must be retained with a message in order to route responses back to
  * the source.
+ * <p>
+ * Note that {@code Session} class refers to a WebSocket transport connection, not to a Conga/FIXP session.
  * 
  * @author Don Mendelson
  *

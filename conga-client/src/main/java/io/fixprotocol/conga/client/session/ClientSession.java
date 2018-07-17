@@ -17,6 +17,7 @@ package io.fixprotocol.conga.client.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
@@ -53,11 +54,8 @@ public class ClientSession extends SbeSession {
     if (!(transport instanceof ClientEndpoint)) {
       throw new IllegalArgumentException("Unknown transport type");
     }
-    final boolean connected = super.connected(transport, principal);
-    if (connected) {
-      this.transport = (ClientEndpoint) transport;
-    }
-    return connected;
+    this.transport = (ClientEndpoint) transport;
+    return super.connected(transport, principal);
   }
 
   @Override
@@ -72,6 +70,7 @@ public class ClientSession extends SbeSession {
 
   @Override
   protected void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException {
+    Objects.requireNonNull(buffer);
     try {
       transport.send(buffer).get();
     } catch (InterruptedException | IllegalStateException | IOException e) {
@@ -91,4 +90,8 @@ public class ClientSession extends SbeSession {
     }
   }
 
+  @Override
+  protected boolean isClientSession() {
+    return true;
+  }
 }

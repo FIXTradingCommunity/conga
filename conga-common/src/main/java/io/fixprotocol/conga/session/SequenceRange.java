@@ -16,8 +16,8 @@
 package io.fixprotocol.conga.session;
 
 public class SequenceRange {
-  long count;
-  long fromSeqNo;
+  private long count;
+  private long fromSeqNo;
   private long timestamp;
 
   public long getCount() {
@@ -32,15 +32,18 @@ public class SequenceRange {
     return timestamp;
   }
 
-  public void setCount(long count) {
+  public SequenceRange count(long count) {
     this.count = count;
+    return this;
   }
 
-  public void setFromSeqNo(long fromSeqNo) {
+  public SequenceRange fromSeqNo(long fromSeqNo) {
     this.fromSeqNo = fromSeqNo;
+    return this;
   }
 
-  public void setTimestamp(long timestamp) {
+  public SequenceRange timestamp(long timestamp) {
     this.timestamp = timestamp;
+    return this;
   }
 }
