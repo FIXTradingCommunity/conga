@@ -22,8 +22,12 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.UUID;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -43,9 +47,11 @@ import io.fixprotocol.conga.messages.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
+import io.fixprotocol.conga.session.SessionState;
 import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.ProtocolViolationException;
 import io.fixprotocol.conga.session.Session;
+import io.fixprotocol.conga.session.SessionEvent;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -180,6 +186,69 @@ public class Trader implements AutoCloseable {
   
   private final int timeoutSeconds; 
   private final Timer timer = new Timer("Client-timer", true);
+  private final ReentrantLock lock = new ReentrantLock();
+  
+  private Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
+
+    private Subscription subscription;
+
+    @Override
+    public void onComplete() {
+      // TODO Auto-generated method stub
+      
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+      errorListener.accept(throwable);
+    }
+
+    @Override
+    public void onNext(SessionEvent item) {
+      try {
+        lock.lock();
+        sessionStateCondition.signalAll();
+        switch (item.getState()) {
+          case ESTABLISHED:
+            System.out.println("Session established");
+            break;
+          case NEGOTATIATED:
+            System.out.println("Session negotiated");
+            break;
+          case FINALIZED:
+            System.out.println("Session finalized");
+            break;
+          case NOT_ESTABLISHED:
+            System.out.println("Session transport unbound");
+            break;
+          case NOT_NEGOTIATED:
+            System.out.println("Session initialized");
+            break;
+        }
+        request(1);
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    @Override
+    public void onSubscribe(Subscription subscription) {
+      this.subscription = subscription;
+      request(1);
+    }
+    
+    private void cancel() {
+      if (subscription != null) {
+        subscription.cancel();
+      }
+    }
+    private void request(int n) {
+      subscription.request(n);
+    }
+  };
+
+  
+  private Condition sessionStateCondition;
 
   private Trader(Builder builder) {
     this.messageListener = Objects.requireNonNull(builder.messageListener, "Message listener not set");
@@ -187,6 +256,8 @@ public class Trader implements AutoCloseable {
     this.timeoutSeconds = builder.timeoutSeconds;
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
+    
+    sessionStateCondition = lock.newCondition();
   }
   
   public void close() {
@@ -234,10 +305,11 @@ public class Trader implements AutoCloseable {
           .sessionId(Session.UUIDAsBytes(uuid))
           .timer(timer)
           .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
-          .sessionMessageConsumer(sessionMessageConsumer)
+          .sessionMessageConsumer(sessionMessageConsumer) 
           .inboundFlowType(FlowType.RECOVERABLE)
           .build();
     }
+    session.subscribeForEvents(eventSubscriber);
     endpoint.open();
     session.connected(endpoint, endpoint.getSource());
   }
@@ -254,8 +326,13 @@ public class Trader implements AutoCloseable {
   public long send(MutableMessage message) throws IOException, InterruptedException {
     Objects.requireNonNull(message);
     try {
+      lock.lockInterruptibly();
+      while(session.getSessionState() != SessionState.ESTABLISHED) {
+        sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
+      }
       return session.sendApplicationMessage(message.toBuffer());
     } finally {
+      lock.unlock();
       message.release();
     }
   }

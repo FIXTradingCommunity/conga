@@ -24,6 +24,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -269,8 +271,8 @@ public abstract class Session {
   }
 
   private final AtomicBoolean connectedCriticalSection = new AtomicBoolean();
-
   private byte[] credentials;
+  private SubmissionPublisher<SessionEvent> eventPublisher;
   private final Executor executor;
   private long heartbeatDueInterval;
   private HeartbeatDueTask heartbeatDueTask;
@@ -279,7 +281,6 @@ public abstract class Session {
   private FlowType inboundFlowType;
   // if false, then is server session
   private boolean isConnected = false;
-  private boolean isEstablished = false;
   private final AtomicBoolean isHeartbeatDueToReceive = new AtomicBoolean(true);
   private final AtomicBoolean isHeartbeatDueToSend = new AtomicBoolean(true);
   private boolean isReceivingRetransmission = false;
@@ -299,8 +300,8 @@ public abstract class Session {
   private final AtomicBoolean sendCriticalSection = new AtomicBoolean();
   private byte[] sessionId;
   private final SessionMessageConsumer sessionMessageConsumer;
+  private SessionState sessionState = SessionState.NOT_NEGOTIATED;
   private final Timer timer;
-
   protected Session(Builder<?> builder) {
     this.timer = builder.timer;
     this.heartbeatInterval = builder.heartbeatInterval;
@@ -312,6 +313,11 @@ public abstract class Session {
     this.executor = builder.executor;
     this.credentials = builder.credentials;
     this.nextSeqNoReceived = builder.lastSeqNoReceived + 1;
+    if (this.executor != null) {
+      this.eventPublisher = new SubmissionPublisher<SessionEvent>(this.executor, 16);
+    } else {
+      this.eventPublisher = new SubmissionPublisher<SessionEvent>();
+    }
 
     if (outboundFlowType == FlowType.RECOVERABLE && sendCache == null) {
       throw new IllegalArgumentException("No send cache for a recoverable flow");
@@ -401,6 +407,10 @@ public abstract class Session {
     return sessionId;
   }
 
+  public SessionState getSessionState() {
+    return sessionState;
+  }
+
   public boolean isConnected() {
     while (!connectedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
@@ -417,12 +427,12 @@ public abstract class Session {
       Thread.yield();
     }
     try {
-      return isConnected && isEstablished;
+      return isConnected && sessionState == SessionState.ESTABLISHED;
     } finally {
       connectedCriticalSection.compareAndSet(true, false);
     }
   }
-
+  
   /**
    * Notifies the Session that a message has been received
    * 
@@ -552,6 +562,10 @@ public abstract class Session {
     }
   }
 
+  public void subscribeForEvents(Subscriber<? super SessionEvent> subscriber) {
+  eventPublisher.subscribe(subscriber);
+  }
+
   @Override
   public String toString() {
     StringBuilder builder2 = new StringBuilder();
@@ -591,32 +605,18 @@ public abstract class Session {
     heartbeatDueInterval = sessionAttributes.getKeepAliveInterval();
     long expectedNextSeqNo = sessionAttributes.getNextSeqNo();
 
-    while (!connectedCriticalSection.compareAndSet(false, true)) {
-      Thread.yield();
+    setSessionState(SessionState.ESTABLISHED);
+    if (inboundFlowType == FlowType.RECOVERABLE && expectedNextSeqNo < nextSeqNoSent.get()) {
+      SequenceRange retransmitRange = new SequenceRange();
+      retransmitRange.timestamp(sessionAttributes.getTimestamp()).fromSeqNo(expectedNextSeqNo)
+          .count(nextSeqNoSent.get() - expectedNextSeqNo);
+      retransmitAsync(retransmitRange);
     }
-    try {
-      isEstablished = true;
-      if (inboundFlowType == FlowType.RECOVERABLE && expectedNextSeqNo < nextSeqNoSent.get()) {
-        SequenceRange retransmitRange = new SequenceRange();
-        retransmitRange.timestamp(sessionAttributes.getTimestamp()).fromSeqNo(expectedNextSeqNo)
-            .count(nextSeqNoSent.get() - expectedNextSeqNo);
-        retransmitAsync(retransmitRange);
-      }
-      scheduleHeartbeats();
-    } finally {
-      connectedCriticalSection.compareAndSet(true, false);
-    }
+    scheduleHeartbeats();
   }
 
   private void establishmentRejectMessageReceived(ByteBuffer buffer) {
-    while (!connectedCriticalSection.compareAndSet(false, true)) {
-      Thread.yield();
-    }
-    try {
-      isEstablished = false;
-    } finally {
-      connectedCriticalSection.compareAndSet(true, false);
-    }
+    setSessionState(SessionState.NEGOTATIATED);
   }
 
   private void establishMessageReceived(ByteBuffer buffer)
@@ -630,7 +630,7 @@ public abstract class Session {
     final long timestamp = sessionAttributes.getTimestamp();
     doSendEstablishAck(sessionId, timestamp, heartbeatInterval, 
         nextSeqNoReceived);
-    isEstablished = true;
+    setSessionState(SessionState.ESTABLISHED);
     if (inboundFlowType == FlowType.RECOVERABLE && expectedNextSeqNo < nextSeqNoSent.get()) {
       SequenceRange retransmitRange = new SequenceRange();
       retransmitRange.timestamp(timestamp).fromSeqNo(expectedNextSeqNo)
@@ -646,6 +646,18 @@ public abstract class Session {
 
   private boolean isHeartbeatDueToSend() {
     return isHeartbeatDueToSend.getAndSet(true);
+  }
+
+  private void setSessionState(SessionState sessionState) {
+    while (!connectedCriticalSection.compareAndSet(false, true)) {
+      Thread.yield();
+    }
+    try {
+      this.sessionState = sessionState;
+      eventPublisher.submit(new SessionEvent(sessionState, sessionId, principal));
+    } finally {
+      connectedCriticalSection.compareAndSet(true, false);
+    }
   }
 
   /**

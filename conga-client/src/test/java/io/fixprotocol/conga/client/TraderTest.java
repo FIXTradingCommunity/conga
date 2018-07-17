@@ -86,7 +86,6 @@ public class TraderTest {
     trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
         .messageListener(listener).errorListener(errorHandler).build();
     trader.open();
-    Thread.sleep(1000L);
   }
 
   /**
