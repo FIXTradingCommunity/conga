@@ -128,7 +128,6 @@ public class MatchEngineTest {
       }
     }
 
-    private int fillCount = 0;
     private int fillIndex = -1;
     private ArrayList<TestFill> fills = new ArrayList<>();
     
@@ -176,7 +175,6 @@ public class MatchEngineTest {
 
     @Override
     public void setFillCount(int count) {
-      this.fillCount = count;
       this.fillIndex = -1;
       for (int i = 0; i < count; i++) {
         this.fills.add(new TestFill());
@@ -216,7 +214,6 @@ public class MatchEngineTest {
 
     @Override
     public void release() {
-      this.fillCount = 0;
       this.fillIndex = -1;
       this.fills.clear();  
     }

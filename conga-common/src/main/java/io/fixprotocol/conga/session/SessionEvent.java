@@ -16,29 +16,33 @@
 package io.fixprotocol.conga.session;
 
 /**
- * Message delivery guarantee
+ * Immutable event emitted when Session state changes
  * 
  * @author Don Mendelson
  *
  */
-public enum FlowType {
-  /**
-   * Guarantees at-most-once delivery
-   */
-  Idempotent,
+public class SessionEvent {
 
-  /**
-   * No application messages should be sent in one direction of a session
-   */
-  None,
+  private String principal;
+  private byte [] sessionId;
+  private SessionState state;
 
-  /**
-   * Guarantees exactly-once message delivery
-   */
-  Recoverable,
+  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
+    this.state = state;
+    this.sessionId = sessionId;
+    this.principal = principal;
+  }
 
-  /**
-   * Best effort delivery
-   */
-  Unsequenced
+  public String getPrincipal() {
+    return principal;
+  }
+
+  public byte[] getSessionId() {
+    return sessionId;
+  }
+
+  public SessionState getState() {
+    return state;
+  }
+  
 }

@@ -108,7 +108,7 @@ public class Exchange implements AutoCloseable {
   private ExchangeSocketServer server = null;
   
   // Consumes application messages from Session
-  private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
+  private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
       message = requestMessageFactory.wrap(buffer);

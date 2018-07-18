@@ -42,11 +42,11 @@ public class SessionAttributes {
   public byte[] getCredentials() {
     return credentials;
   }
-
+  
   public FlowType getFlowType() {
     return flowType;
   }
-  
+
   public long getKeepAliveInterval() {
     return keepAliveInterval;
   }
@@ -58,11 +58,11 @@ public class SessionAttributes {
   public byte[] getSessionId() {
     return sessionId;
   }
-
+  
   public long getTimestamp() {
     return timestamp;
   }
-  
+
   public SessionAttributes keepAliveInterval(long keepAliveInterval) {
     this.keepAliveInterval = keepAliveInterval;
     return this;

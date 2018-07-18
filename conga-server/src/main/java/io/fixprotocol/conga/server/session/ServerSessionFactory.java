@@ -47,7 +47,7 @@ public class ServerSessionFactory implements SessionFactory {
     return ServerSession.builder().timer(timer)
         .heartbeatInterval(heartbeatInterval)
         .sessionMessageConsumer(sessionMessageConsumer)
-        .outboundFlowType(FlowType.RECOVERABLE)
+        .outboundFlowType(FlowType.Recoverable)
         .sendCache(new BufferCache())
         .executor(executor)
         .build();

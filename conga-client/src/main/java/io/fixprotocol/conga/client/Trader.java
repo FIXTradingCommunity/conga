@@ -48,7 +48,6 @@ import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
 import io.fixprotocol.conga.session.SessionState;
-import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.ProtocolViolationException;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.SessionEvent;
@@ -212,7 +211,7 @@ public class Trader implements AutoCloseable {
           case ESTABLISHED:
             System.out.println("Session established");
             break;
-          case NEGOTATIATED:
+          case NEGOTIATED:
             System.out.println("Session negotiated");
             break;
           case FINALIZED:
@@ -306,7 +305,6 @@ public class Trader implements AutoCloseable {
           .timer(timer)
           .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
           .sessionMessageConsumer(sessionMessageConsumer) 
-          .inboundFlowType(FlowType.RECOVERABLE)
           .build();
     }
     session.subscribeForEvents(eventSubscriber);

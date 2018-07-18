@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
-import io.fixprotocol.conga.session.EstablishmentReject;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 

@@ -29,6 +29,13 @@ import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiateDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiateEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiationRejectCode;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiationRejectDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiationRejectEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiationResponseDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.NegotiationResponseEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.NotAppliedEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.RetransmissionDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.RetransmissionEncoder;
@@ -37,6 +44,8 @@ import io.fixprotocol.conga.sbe.messages.fixp.RetransmitRequestEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.SequenceEncoder;
 import io.fixprotocol.conga.session.EstablishmentReject;
+import io.fixprotocol.conga.session.FlowType;
+import io.fixprotocol.conga.session.NegotiationReject;
 import io.fixprotocol.conga.session.SequenceRange;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.SessionAttributes;
@@ -65,6 +74,18 @@ public abstract class SbeSession extends Session {
   private UnsafeBuffer establishmentRejectMutableBuffer;
   private UnsafeBuffer establishMutableBuffer;
   private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
+  private ByteBuffer negotiateBuffer;
+  private NegotiateDecoder negotiateDecoder;
+  private NegotiateEncoder negotiateEncoder;
+  private UnsafeBuffer negotiateMutableBuffer;
+  private ByteBuffer negotiationRejectBuffer;
+  private NegotiationRejectDecoder negotiationRejectDecoder;
+  private NegotiationRejectEncoder negotiationRejectEncoder;
+  private UnsafeBuffer negotiationRejectMutableBuffer;
+  private ByteBuffer negotiationResponseBuffer;
+  private NegotiationResponseDecoder negotiationResponseDecoder;
+  private NegotiationResponseEncoder negotiationResponseEncoder;
+  private UnsafeBuffer negotiationResponseMutableBuffer;
   private final ByteBuffer notAppliedBuffer = ByteBuffer.allocateDirect(32);
   private final NotAppliedEncoder notAppliedEncoder = new NotAppliedEncoder();
   private final UnsafeBuffer notAppliedMutableBuffer = new UnsafeBuffer();
@@ -89,6 +110,15 @@ public abstract class SbeSession extends Session {
   private void init() {
     final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
     if (isClientSession()) {
+      negotiateBuffer = ByteBuffer.allocateDirect(256);
+      negotiateEncoder = new NegotiateEncoder();
+      negotiateMutableBuffer = new UnsafeBuffer();
+      negotiateMutableBuffer.wrap(negotiateBuffer);
+      negotiateEncoder.wrapAndApplyHeader(negotiateMutableBuffer, 0, headerEncoder);
+
+      negotiationResponseDecoder = new NegotiationResponseDecoder();
+      negotiationRejectDecoder = new NegotiationRejectDecoder();
+
       establishBuffer = ByteBuffer.allocateDirect(256);
       establishEncoder = new EstablishEncoder();
       establishMutableBuffer = new UnsafeBuffer();
@@ -98,6 +128,21 @@ public abstract class SbeSession extends Session {
       establishmentAckDecoder = new EstablishmentAckDecoder();
       establishmentRejectDecoder = new EstablishmentRejectDecoder();
     } else {
+      negotiateDecoder = new NegotiateDecoder();
+
+      negotiationResponseBuffer = ByteBuffer.allocateDirect(256);
+      negotiationResponseEncoder = new NegotiationResponseEncoder();
+      negotiationResponseMutableBuffer = new UnsafeBuffer();
+      negotiationResponseMutableBuffer.wrap(negotiationResponseBuffer);
+      negotiationResponseEncoder.wrapAndApplyHeader(negotiationResponseMutableBuffer, 0,
+          headerEncoder);
+
+      negotiationRejectBuffer = ByteBuffer.allocateDirect(256);
+      negotiationRejectEncoder = new NegotiationRejectEncoder();
+      negotiationRejectMutableBuffer = new UnsafeBuffer();
+      negotiationRejectMutableBuffer.wrap(negotiationRejectBuffer);
+      negotiationRejectEncoder.wrapAndApplyHeader(negotiationRejectMutableBuffer, 0, headerEncoder);
+
       establishDecoder = new EstablishDecoder();
 
       establishmentAckBuffer = ByteBuffer.allocateDirect(256);
@@ -185,6 +230,63 @@ public abstract class SbeSession extends Session {
     doSendMessage(establishmentRejectBuffer.duplicate());
   }
 
+  @Override
+  protected void doSendNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
+      byte[] credentials) throws IOException, InterruptedException {
+    if (!isClientSession()) {
+      throw new IllegalStateException("Negotiate invoked for server session");
+    }
+    for (int i = 0; i < NegotiateEncoder.sessionIdLength(); i++) {
+      negotiateEncoder.sessionId(i, sessionId[i]);
+    }
+    negotiateEncoder.timestamp(timestamp);
+    negotiateEncoder
+        .clientFlow(io.fixprotocol.conga.sbe.messages.fixp.FlowType.valueOf(clientFlow.name()));
+    if (credentials != null) {
+      negotiateEncoder.putCredentials(credentials, 0, credentials.length);
+    }
+    negotiateBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiateEncoder.encodedLength());
+    doSendMessage(negotiateBuffer.duplicate());
+  }
+
+  @Override
+  protected void doSendNegotiationReject(byte[] sessionId, long requestTimestamp,
+      NegotiationReject rejectCode, byte[] reason) throws IOException, InterruptedException {
+    if (isClientSession()) {
+      throw new IllegalStateException("NegotiationReject invoked for client session");
+    }
+    for (int i = 0; i < NegotiationRejectEncoder.sessionIdLength(); i++) {
+      negotiationRejectEncoder.sessionId(i, getSessionId()[i]);
+    }
+    negotiationRejectEncoder.requestTimestamp(requestTimestamp);
+    negotiationRejectEncoder.code(NegotiationRejectCode.valueOf(rejectCode.name()));
+    negotiationRejectEncoder.putReason(reason, 0, reason.length);
+    negotiationRejectBuffer
+        .limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiationRejectEncoder.encodedLength());
+
+    doSendMessage(negotiationRejectBuffer.duplicate());
+  }
+
+  @Override
+  protected void doSendNegotiationResponse(byte[] sessionId, long requestTimestamp,
+      FlowType serverFlow, byte[] credentials) throws IOException, InterruptedException {
+    if (isClientSession()) {
+      throw new IllegalStateException("NegotiationResponse invoked for client session");
+    }
+    for (int i = 0; i < NegotiationResponseEncoder.sessionIdLength(); i++) {
+      negotiationResponseEncoder.sessionId(i, sessionId[i]);
+    }
+    negotiationResponseEncoder.requestTimestamp(requestTimestamp);
+    negotiationResponseEncoder
+        .serverFlow(io.fixprotocol.conga.sbe.messages.fixp.FlowType.valueOf(serverFlow.name()));
+    if (credentials != null) {
+      negotiationResponseEncoder.putCredentials(credentials, 0, credentials.length);
+    }
+    negotiationResponseBuffer
+        .limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiationResponseEncoder.encodedLength());
+    doSendMessage(negotiationResponseBuffer.duplicate());
+  }
+
   protected void doSendNotApplied(long fromSeqNo, long count)
       throws IOException, InterruptedException {
     notAppliedEncoder.fromSeqNo(fromSeqNo);
@@ -270,6 +372,15 @@ public abstract class SbeSession extends Session {
         case NotAppliedEncoder.TEMPLATE_ID:
           messageType = MessageType.NOT_APPLIED;
           break;
+        case NegotiateEncoder.TEMPLATE_ID:
+          messageType = MessageType.NEGOTIATE;
+          break;
+        case NegotiationResponseEncoder.TEMPLATE_ID:
+          messageType = MessageType.NEGOTIATION_RESPONSE;
+          break;
+        case NegotiationRejectEncoder.TEMPLATE_ID:
+          messageType = MessageType.NEGOTIATION_REJECT;
+          break;
         case EstablishEncoder.TEMPLATE_ID:
           messageType = MessageType.ESTABLISH;
           break;
@@ -289,6 +400,42 @@ public abstract class SbeSession extends Session {
     }
 
     return messageType;
+  }
+
+  @Override
+  protected void getNegotiateSessionAttributes(ByteBuffer buffer,
+      SessionAttributes sessionAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    negotiateDecoder.wrap(directBuffer, headerDecoder.encodedLength(), headerDecoder.blockLength(),
+        headerDecoder.version());
+
+    sessionAttributes.credentials(new byte[negotiateDecoder.credentialsLength()]);
+    negotiateDecoder.getCredentials(sessionAttributes.getCredentials(), 0,
+        sessionAttributes.getCredentials().length);
+    for (int i = 0; i < NegotiateDecoder.sessionIdEncodingLength(); i++) {
+      sessionAttributes.getSessionId()[i] = (byte) negotiateDecoder.sessionId(i);
+    }
+    sessionAttributes.timestamp(negotiateDecoder.timestamp());
+    sessionAttributes.flowType(FlowType.valueOf(negotiateDecoder.clientFlow().name()));
+  }
+
+  @Override
+  protected void getNegotiationResponseSessionAttributes(ByteBuffer buffer,
+      SessionAttributes sessionAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    negotiationResponseDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+
+    sessionAttributes.credentials(new byte[negotiationResponseDecoder.credentialsLength()]);
+    negotiationResponseDecoder.getCredentials(sessionAttributes.getCredentials(), 0,
+        sessionAttributes.getCredentials().length);
+    for (int i = 0; i < NegotiationResponseDecoder.sessionIdEncodingLength(); i++) {
+      sessionAttributes.getSessionId()[i] = (byte) negotiationResponseDecoder.sessionId(i);
+    }
+    sessionAttributes.timestamp(negotiationResponseDecoder.requestTimestamp());
+    sessionAttributes.flowType(FlowType.valueOf(negotiationResponseDecoder.serverFlow().name()));
   }
 
   @Override

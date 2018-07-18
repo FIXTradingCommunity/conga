@@ -16,29 +16,28 @@
 package io.fixprotocol.conga.session;
 
 /**
- * Message delivery guarantee
- * 
  * @author Don Mendelson
  *
  */
-public enum FlowType {
+public enum SessionState {
   /**
-   * Guarantees at-most-once delivery
+   * Not negotiated yet
    */
-  Idempotent,
-
+  NOT_NEGOTIATED,
   /**
-   * No application messages should be sent in one direction of a session
+   * Negotiated successfully
    */
-  None,
-
+  NEGOTIATED,
   /**
-   * Guarantees exactly-once message delivery
+   * Established successfully
    */
-  Recoverable,
-
+  ESTABLISHED,
   /**
-   * Best effort delivery
+   * Transport unbound; may be re-established
    */
-  Unsequenced
+  NOT_ESTABLISHED,
+  /**
+   * Logical flow is finalized; terminal state
+   */
+  FINALIZED
 }
