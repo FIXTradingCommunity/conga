@@ -21,7 +21,6 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
-import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.sbe.SbeSession;
 
 /**
@@ -32,13 +31,14 @@ public class ClientSession extends SbeSession {
 
   private ClientEndpoint transport;
   
-  public static class Builder extends Session.Builder<ClientSession> {
+  public static class Builder extends SbeSession.Builder<ClientSession, Builder> {
 
     @Override
     public ClientSession build() {
       return new ClientSession(this);
     }
     
+
   }
   
   public static Builder builder() {
