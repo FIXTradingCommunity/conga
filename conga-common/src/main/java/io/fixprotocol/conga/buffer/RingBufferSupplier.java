@@ -125,7 +125,7 @@ public class RingBufferSupplier implements BufferSupplier {
     }
 
   };
-  
+
   private final ThreadFactory threadFactory;
 
   /**
@@ -170,20 +170,23 @@ public class RingBufferSupplier implements BufferSupplier {
   }
 
   public void start() {
-    disruptor = new Disruptor<BufferEvent>(BufferEvent::new, queueDepth, threadFactory,
-        ProducerType.SINGLE, new BusySpinWaitStrategy());
+    if (disruptor == null) {
+      disruptor = new Disruptor<BufferEvent>(BufferEvent::new, queueDepth, threadFactory,
+          ProducerType.SINGLE, new BusySpinWaitStrategy());
 
-    // Connect the handler
-    disruptor.handleEventsWith(eventHandler);
+      // Connect the handler
+      disruptor.handleEventsWith(eventHandler);
 
-    // Start the Disruptor, starts all threads running
-    disruptor.start();
+      // Start the Disruptor, starts all threads running
+      disruptor.start();
 
-    ringBuffer = disruptor.getRingBuffer();
+      ringBuffer = disruptor.getRingBuffer();
+    }
   }
 
   public void stop() {
     disruptor.shutdown();
+    disruptor = null;
   }
 
 

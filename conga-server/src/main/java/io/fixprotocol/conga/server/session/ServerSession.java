@@ -17,6 +17,7 @@ package io.fixprotocol.conga.server.session;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
 import io.fixprotocol.conga.session.sbe.SbeSession;
@@ -29,22 +30,22 @@ import io.fixprotocol.conga.session.sbe.SbeSession;
  */
 public class ServerSession extends SbeSession {
 
-  private BinaryExchangeSocket transport;
-
   public static class Builder extends SbeSession.Builder<ServerSession, Builder> {
 
     @Override
     public ServerSession build() {
       return new ServerSession(this);
     }
-    
+
   }
-  
+
   public static Builder builder() {
     return new Builder();
   }
-  
-  private ServerSession(Builder builder)  {
+
+  private BinaryExchangeSocket transport;
+
+  private ServerSession(Builder builder) {
     super(builder);
   }
 
@@ -72,13 +73,23 @@ public class ServerSession extends SbeSession {
   }
 
   @Override
-  protected void doSendMessage(ByteBuffer buffer) throws IOException {
+  protected boolean isClientSession() {
+    return false;
+  }
+
+  @Override
+  protected void sendMessage(ByteBuffer buffer) throws IOException {
     transport.send(buffer);
   }
 
   @Override
-  protected boolean isClientSession() {
-    return false;
+  protected CompletableFuture<ByteBuffer> sendMessageAsync(ByteBuffer buffer) {
+    try {
+      transport.sendAsync(buffer).get();
+      return CompletableFuture.completedFuture(buffer);
+    } catch (Throwable t) {
+      return CompletableFuture.failedFuture(t);
+    }
   }
 
 }

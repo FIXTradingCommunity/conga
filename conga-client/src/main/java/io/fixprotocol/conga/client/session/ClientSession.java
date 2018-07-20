@@ -18,6 +18,7 @@ package io.fixprotocol.conga.client.session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
@@ -69,7 +70,7 @@ public class ClientSession extends SbeSession {
   }
 
   @Override
-  protected void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException {
+  protected void sendMessage(ByteBuffer buffer) throws IOException, InterruptedException {
     Objects.requireNonNull(buffer);
     try {
       transport.send(buffer).get();
@@ -87,6 +88,16 @@ public class ClientSession extends SbeSession {
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+  
+  @Override
+  protected CompletableFuture<ByteBuffer> sendMessageAsync(ByteBuffer buffer) {
+    Objects.requireNonNull(buffer);
+    try {
+      return transport.send(buffer);
+    } catch (Exception e) {
+      return CompletableFuture.failedFuture(e);
     }
   }
 

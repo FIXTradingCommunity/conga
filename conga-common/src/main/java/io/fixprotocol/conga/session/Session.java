@@ -23,9 +23,11 @@ import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -201,10 +203,10 @@ public abstract class Session {
         try {
           switch (getSessionState()) {
             case ESTABLISHED:
-              doSendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
+              sendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
               break;
             case FINALIZE_REQUESTED:
-              doSendMessage(
+              sendMessage(
                   sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1));
               break;
           }
@@ -328,11 +330,11 @@ public abstract class Session {
           SessionState state = getSessionState();
           switch (state) {
             case NOT_NEGOTIATED:
-              doSendMessage(sessionMessenger.encodeNegotiate(sessionId, lastRequestTimestamp, outboundFlowType, credentials));
+              sendMessage(sessionMessenger.encodeNegotiate(sessionId, lastRequestTimestamp, outboundFlowType, credentials));
               break;
             case NEGOTIATED:
             case NOT_ESTABLISHED:
-              doSendMessage(sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
+              sendMessage(sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
                   credentials));
               break;
           }
@@ -351,9 +353,6 @@ public abstract class Session {
       connectedCriticalSection.compareAndSet(true, false);
     }
   }
-
-  protected abstract void doSendMessage(ByteBuffer buffer) throws IOException, InterruptedException;
-
 
   /**
    * The underlying transport was disconnected
@@ -378,6 +377,12 @@ public abstract class Session {
     } finally {
       connectedCriticalSection.compareAndSet(true, false);
     }
+  }
+
+
+  public void finalizeFlow() throws IOException, InterruptedException {
+    sendMessage(sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1));
+    setSessionState(SessionState.FINALIZE_REQUESTED);
   }
 
   public FlowType getInboundFlowType() {
@@ -419,13 +424,9 @@ public abstract class Session {
    * Notifies the Session that a message has been received
    * 
    * @param buffer holds a single message
-   * @throws ProtocolViolationException if the Session is in an invalid state for the message type
-   * @throws MessageException if the message cannot be parsed or its type is unknown
-   * @throws InterruptedException
-   * @throws IOException
+   * @throws Exception
    */
-  public void messageReceived(ByteBuffer buffer)
-      throws ProtocolViolationException, MessageException, IOException, InterruptedException {
+  public void messageReceived(ByteBuffer buffer) throws Exception {
     while (!receivedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
     }
@@ -488,7 +489,8 @@ public abstract class Session {
           negotiationRejectMessageReceived(buffer);
           break;
         case FINISHED_SENDING:
-          doSendMessage(sessionMessenger.encodeFinishedReceiving(sessionId));
+          sendMessageAsync(sessionMessenger.encodeFinishedReceiving(sessionId))
+              .get(heartbeatDueInterval, TimeUnit.MILLISECONDS);
           setSessionState(SessionState.FINALIZED);
           cancelHeartbeats();
           doDisconnect();
@@ -530,11 +532,11 @@ public abstract class Session {
         }
 
         if (isSendingRetransmission) {
-          doSendMessage(sessionMessenger.encodeSequence(seqNo));
+          sendMessage(sessionMessenger.encodeSequence(seqNo));
           isSendingRetransmission = false;
         }
         isHeartbeatDueToSend.set(false);
-        doSendMessage(buffer);
+        sendMessage(buffer);
 
         return seqNo;
       } catch (IOException e) {
@@ -558,17 +560,12 @@ public abstract class Session {
    */
   public void sendHeartbeat() {
     try {
-      doSendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
+      sendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
     } catch (IOException | InterruptedException e) {
       disconnected();
     }
   }
   
-  public void finalizeFlow() throws IOException, InterruptedException {
-    doSendMessage(sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1));
-    setSessionState(SessionState.FINALIZE_REQUESTED);
-  }
-
   public void subscribeForEvents(Subscriber<? super SessionEvent> subscriber) {
     eventPublisher.subscribe(subscriber);
   }
@@ -633,7 +630,7 @@ public abstract class Session {
     heartbeatDueInterval = sessionAttributes.getKeepAliveInterval();
     long expectedNextSeqNo = sessionAttributes.getNextSeqNo();
     final long timestamp = sessionAttributes.getTimestamp();
-    doSendMessage(sessionMessenger.encodeEstablishAck(sessionId, timestamp, heartbeatInterval, nextSeqNoReceived));
+    sendMessage(sessionMessenger.encodeEstablishAck(sessionId, timestamp, heartbeatInterval, nextSeqNoReceived));
     setSessionState(SessionState.ESTABLISHED);
     if (inboundFlowType == FlowType.Recoverable && expectedNextSeqNo < nextSeqNoSent.get()) {
       SequenceRange retransmitRange = new SequenceRange();
@@ -659,7 +656,7 @@ public abstract class Session {
     sessionId = sessionAttributes.getSessionId();
     inboundFlowType = sessionAttributes.getFlowType();
     final long timestamp = sessionAttributes.getTimestamp();
-    doSendMessage(sessionMessenger.encodeNegotiationResponse(sessionId, timestamp, outboundFlowType, null));
+    sendMessage(sessionMessenger.encodeNegotiationResponse(sessionId, timestamp, outboundFlowType, null));
     setSessionState(SessionState.NEGOTIATED);
   }
 
@@ -679,7 +676,7 @@ public abstract class Session {
     inboundFlowType = sessionAttributes.getFlowType();
     setSessionState(SessionState.NEGOTIATED);
     lastRequestTimestamp = getTimeAsNanos();
-    doSendMessage(sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
+    sendMessage(sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
         credentials));
   }
 
@@ -732,8 +729,8 @@ public abstract class Session {
 
   protected abstract void doDisconnect();
 
-
   protected abstract boolean isClientSession();
+
 
   protected void retransmissionMessageReceived(ByteBuffer buffer)
       throws ProtocolViolationException {
@@ -760,9 +757,9 @@ public abstract class Session {
           Thread.yield();
         }
         isSendingRetransmission = true;
-        doSendMessage(sessionMessenger.encodeRetransmission(sessionId, retransmitRange));
+        sendMessage(sessionMessenger.encodeRetransmission(sessionId, retransmitRange));
         for (ByteBuffer buffer : buffers) {
-          doSendMessage(buffer);
+          sendMessage(buffer);
         }
       } catch(IndexOutOfBoundsException e) {
         // TODO report error
@@ -793,6 +790,21 @@ public abstract class Session {
     timer.scheduleAtFixedRate(heartbeatSendTask, heartbeatInterval, heartbeatInterval);
   }
 
+  /**
+   * Send a message synchronously
+   * @param buffer holds a message to send
+   * @throws IOException if an IO error occurs
+   * @throws InterruptedException if the operation is interrupted
+   */
+  protected abstract void sendMessage(ByteBuffer buffer) throws IOException, InterruptedException;
+
+  /**
+   * Send a message asynchronously
+   * @param buffer holds a message to send
+   * @return a future that provides asynchronous result
+   */
+  protected abstract CompletableFuture<ByteBuffer> sendMessageAsync(ByteBuffer buffer);
+
   protected void sequenceMessageReceived(ByteBuffer buffer) throws ProtocolViolationException {
     isReceivingRetransmission = false;
     long newNextSeqNo = sessionMessenger.decodeSequence(buffer);
@@ -805,10 +817,10 @@ public abstract class Session {
             lastRequestTimestamp = getTimeAsNanos();
             retransmitRange.timestamp(lastRequestTimestamp).fromSeqNo(prevNextSeqNo)
                 .count(newNextSeqNo - prevNextSeqNo);
-            doSendMessage(sessionMessenger.encodeRetransmitRequest(sessionId, retransmitRange));
+            sendMessage(sessionMessenger.encodeRetransmitRequest(sessionId, retransmitRange));
             break;
           case Idempotent:
-            doSendMessage(sessionMessenger.encodeNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo));
+            sendMessage(sessionMessenger.encodeNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo));
             break;
           default:
             // do nothing

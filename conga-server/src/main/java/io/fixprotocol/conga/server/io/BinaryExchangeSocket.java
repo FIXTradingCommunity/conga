@@ -17,6 +17,7 @@ package io.fixprotocol.conga.server.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.Future;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
@@ -89,13 +90,30 @@ public class BinaryExchangeSocket {
     this.fixSession.connected(this, principal);
   }
 
-  public final void send(ByteBuffer buffer) throws IOException {
-    // synchronous send
+  /**
+   * Synchronous send
+   * @param buffer holds a message
+   * @throws IOException if unable to send
+   */
+  public void send(ByteBuffer buffer) throws IOException {
     webSocketSession.getRemote().sendBytes(buffer);
   }
   
+  /**
+   * Asynchronous send
+   * @param buffer holds a message
+   * @return a Future to tell when the operations is complete
+   */
+  public Future<Void> sendAsync(ByteBuffer buffer) {
+    return webSocketSession.getRemote().sendBytesByFuture(buffer);
+  } 
+  
   public final void close() {
-    // code for normal closure
-    webSocketSession.close(1000, "");
+    try {
+      // code for normal closure
+      webSocketSession.close(1000, "");
+    } catch (Exception e) {
+
+    }
   }
 }

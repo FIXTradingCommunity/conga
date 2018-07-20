@@ -42,7 +42,6 @@ import io.fixprotocol.conga.server.io.ExchangeSocketServer;
 import io.fixprotocol.conga.server.session.ServerSession;
 import io.fixprotocol.conga.server.session.ServerSessionFactory;
 import io.fixprotocol.conga.server.session.ServerSessions;
-import io.fixprotocol.conga.session.ProtocolViolationException;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
 
 /**
@@ -95,8 +94,8 @@ public class Exchange implements AutoCloseable {
       final ServerSession session = sessions.getSession(source);
       try {
       session.messageReceived(buffer);
-      } catch (ProtocolViolationException | MessageException | IOException | InterruptedException e) {
-        errorListener.accept(e);
+      } catch (Throwable t) {
+        errorListener.accept(t);
       }
     }
   };
