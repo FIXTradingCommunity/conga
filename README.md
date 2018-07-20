@@ -22,7 +22,9 @@ Message framing is performed by [WebSocket protocol](https://tools.ietf.org/html
 
 ### Session Layer
 
-Sessions are initiated as an HTTP request to upgrade to WebSocket. WebSocket, an IETF protocol, provides two-way communication, unlike HTTP itself.
+Sessions are initiated as an HTTP request to upgrade to WebSocket. WebSocket, an IETF protocol, provides two-way push communication, unlike HTTP itself.
+
+Message delivery idempotency or recoverability is ensured by [FIX Performance Session Layer](https://github.com/FIXTradingCommunity/fixp-specification) semantics. FIXP is a FIX protocol.
 
 ### Transport Layer
 
@@ -36,7 +38,6 @@ As part of the initial HTTP contact, a TLS handshake negotiates cipher suites an
 
 * Use alternative encodings, e.g. Google Protocol Buffers, or JSON (not high performance)
 * Enhanced client authentication
-* Message idempotency and recoverability using [FIX Performance Session Layer](https://github.com/FIXTradingCommunity/fixp-specification) semantics. FIXP is a FIX protocol.
 
 ## Prerequisites
 
