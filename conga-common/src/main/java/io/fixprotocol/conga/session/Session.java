@@ -199,7 +199,15 @@ public abstract class Session {
     public void run() {
       if (isHeartbeatDueToSend()) {
         try {
-          doSendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
+          switch (getSessionState()) {
+            case ESTABLISHED:
+              doSendMessage(sessionMessenger.encodeSequence(nextSeqNoSent.get()));
+              break;
+            case FINALIZE_REQUESTED:
+              doSendMessage(
+                  sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1));
+              break;
+          }
         } catch (IOException | InterruptedException | IllegalStateException e) {
           disconnected();
         }
@@ -360,7 +368,7 @@ public abstract class Session {
     }
     try {
       if (isConnected) {
-        cancelHearbeats();
+        cancelHeartbeats();
         isConnected = false;
         setSessionState(SessionState.NOT_ESTABLISHED);
         return true;
@@ -479,6 +487,17 @@ public abstract class Session {
         case NEGOTIATION_REJECT:
           negotiationRejectMessageReceived(buffer);
           break;
+        case FINISHED_SENDING:
+          doSendMessage(sessionMessenger.encodeFinishedReceiving(sessionId));
+          setSessionState(SessionState.FINALIZED);
+          cancelHeartbeats();
+          doDisconnect();
+          break;
+        case FINISHED_RECEIVING:
+          setSessionState(SessionState.FINALIZED);
+          cancelHeartbeats();
+          doDisconnect();
+          break;
         default:
           throw new MessageException("Unknown message type received");
       }
@@ -544,6 +563,11 @@ public abstract class Session {
       disconnected();
     }
   }
+  
+  public void finalizeFlow() throws IOException, InterruptedException {
+    doSendMessage(sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1));
+    setSessionState(SessionState.FINALIZE_REQUESTED);
+  }
 
   public void subscribeForEvents(Subscriber<? super SessionEvent> subscriber) {
     eventPublisher.subscribe(subscriber);
@@ -565,7 +589,7 @@ public abstract class Session {
     return builder2.toString();
   }
 
-  private void cancelHearbeats() {
+  private void cancelHeartbeats() {
     if (heartbeatDueTask != null) {
       heartbeatDueTask.cancel();
     }
@@ -669,8 +693,8 @@ public abstract class Session {
                     SessionState.ESTABLISHED);
         break;
       case FINALIZED:
-        successful =
-            this.sessionState.compareAndSet(SessionState.ESTABLISHED, SessionState.FINALIZED);
+        successful = this.sessionState.compareAndSet(SessionState.FINALIZE_REQUESTED,
+            SessionState.FINALIZED);
         break;
       case NEGOTIATED:
         successful =
@@ -679,6 +703,10 @@ public abstract class Session {
       case NOT_ESTABLISHED:
         successful =
             this.sessionState.compareAndSet(SessionState.ESTABLISHED, SessionState.NOT_ESTABLISHED);
+        break;
+      case FINALIZE_REQUESTED:
+        successful = this.sessionState.compareAndSet(SessionState.ESTABLISHED,
+            SessionState.FINALIZE_REQUESTED);
         break;
     }
     if (successful) {

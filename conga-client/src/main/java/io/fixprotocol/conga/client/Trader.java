@@ -151,7 +151,7 @@ public class Trader implements AutoCloseable {
   
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private final Consumer<Throwable> errorListener;
+  private Consumer<Throwable> errorListener = (t) -> t.printStackTrace();
   private ApplicationMessageConsumer messageListener = null;
   private final MutableRequestMessageFactory requestFactory =
       new SbeMutableRequestMessageFactory(bufferSupplier); 
@@ -177,8 +177,7 @@ public class Trader implements AutoCloseable {
       message = responseFactory.wrap(buffer);
       messageListener.accept(source, message, seqNo);
     } catch (MessageException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      errorListener.accept(e);
     }
     
   };
@@ -261,14 +260,20 @@ public class Trader implements AutoCloseable {
   
   public void close() {
     try {
-      endpoint.close();
       if (session != null) {
-        session.disconnected();
+        try {
+          lock.lockInterruptibly();
+          session.finalizeFlow();
+          while(session.getSessionState() != SessionState.FINALIZED) {
+            sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
+          }
+         } finally {
+          lock.unlock();
+        }
       }
       ringBuffer.stop();
     } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      errorListener.accept(e);
     }
   }
 

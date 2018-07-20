@@ -27,6 +27,10 @@ import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentAckEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectCode;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishmentRejectEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.FinishedReceivingDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.FinishedReceivingEncoder;
+import io.fixprotocol.conga.sbe.messages.fixp.FinishedSendingDecoder;
+import io.fixprotocol.conga.sbe.messages.fixp.FinishedSendingEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.MessageHeaderEncoder;
 import io.fixprotocol.conga.sbe.messages.fixp.NegotiateDecoder;
@@ -50,6 +54,7 @@ import io.fixprotocol.conga.session.SequenceRange;
 import io.fixprotocol.conga.session.SessionAttributes;
 import io.fixprotocol.conga.session.SessionMessageType;
 import io.fixprotocol.conga.session.SessionMessenger;
+import io.fixprotocol.conga.session.SessionSequenceAttributes;
 
 /**
  * @author Don Mendelson
@@ -70,6 +75,14 @@ class SbeSessionMessenger implements SessionMessenger {
   private EstablishmentRejectEncoder establishmentRejectEncoder;
   private UnsafeBuffer establishmentRejectMutableBuffer;
   private UnsafeBuffer establishMutableBuffer;
+  private final ByteBuffer finishedReceivingBuffer = ByteBuffer.allocateDirect(32);
+  private final FinishedReceivingDecoder finishedReceivingDecoder = new FinishedReceivingDecoder();
+  private final FinishedReceivingEncoder finishedReceivingEncoder = new FinishedReceivingEncoder();
+  private final UnsafeBuffer finishedReceivingMutableBuffer = new UnsafeBuffer();
+  private final ByteBuffer finishedSendingBuffer = ByteBuffer.allocateDirect(48);
+  private final FinishedSendingDecoder finishedSendingDecoder = new FinishedSendingDecoder();
+  private final FinishedSendingEncoder finishedSendingEncoder = new FinishedSendingEncoder();
+  private final UnsafeBuffer finishedSendingMutableBuffer = new UnsafeBuffer();
   private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
   private boolean isClientSession;
   private ByteBuffer negotiateBuffer;
@@ -130,6 +143,33 @@ class SbeSessionMessenger implements SessionMessenger {
     sessionAttributes.timestamp(establishDecoder.timestamp());
     sessionAttributes.keepAliveInterval(establishDecoder.keepaliveInterval());
     sessionAttributes.nextSeqNo(establishDecoder.nextSeqNo());
+  }
+
+  @Override
+  public void decodeFinishedReceiving(ByteBuffer buffer,
+      SessionSequenceAttributes sessionSequenceAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    finishedReceivingDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+
+    for (int i = 0; i < FinishedReceivingDecoder.sessionIdEncodingLength(); i++) {
+      sessionSequenceAttributes.getSessionId()[i] = (byte) finishedReceivingDecoder.sessionId(i);
+    } 
+  }
+
+  @Override
+  public void decodeFinishedSending(ByteBuffer buffer,
+      SessionSequenceAttributes sessionSequenceAttributes) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    finishedSendingDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+
+    for (int i = 0; i < FinishedSendingDecoder.sessionIdEncodingLength(); i++) {
+      sessionSequenceAttributes.getSessionId()[i] = (byte) finishedSendingDecoder.sessionId(i);
+    }
+    sessionSequenceAttributes.seqNo(finishedSendingDecoder.lastSeqNo());
   }
 
   @Override
@@ -230,6 +270,25 @@ class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
+  public ByteBuffer encodeFinishedReceiving(byte[] sessionId) {
+    for (int i = 0; i < FinishedReceivingEncoder.sessionIdLength(); i++) {
+      finishedReceivingEncoder.sessionId(i, sessionId[i]);
+    }
+    finishedReceivingBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + finishedReceivingEncoder.encodedLength());
+    return finishedReceivingBuffer.duplicate();
+  }
+
+  @Override
+  public ByteBuffer encodeFinishedSending(byte[] sessionId, long lastSeqNo) {
+    for (int i = 0; i < FinishedSendingEncoder.sessionIdLength(); i++) {
+      finishedSendingEncoder.sessionId(i, sessionId[i]);
+    }
+    finishedSendingEncoder.lastSeqNo(lastSeqNo);
+    finishedSendingBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + finishedSendingEncoder.encodedLength());
+    return finishedSendingBuffer.duplicate();
+  }
+
+  @Override
   public ByteBuffer encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
       byte[] credentials) throws IOException, InterruptedException {
     if (!isClientSession()) {
@@ -290,6 +349,7 @@ class SbeSessionMessenger implements SessionMessenger {
       throws IOException, InterruptedException {
     notAppliedEncoder.fromSeqNo(fromSeqNo);
     notAppliedEncoder.count(count);
+    notAppliedBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + notAppliedEncoder.encodedLength());
     return notAppliedBuffer.duplicate();
   }
 
@@ -326,6 +386,7 @@ class SbeSessionMessenger implements SessionMessenger {
   @Override
   public ByteBuffer encodeSequence(long nextSeqNo) throws IOException, InterruptedException {
     sequenceEncoder.nextSeqNo(nextSeqNo);
+    sequenceBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + sequenceEncoder.encodedLength());
     return sequenceBuffer.duplicate();
   }
 
@@ -368,6 +429,12 @@ class SbeSessionMessenger implements SessionMessenger {
           break;
         case RetransmitRequestEncoder.TEMPLATE_ID:
           messageType = SessionMessageType.RETRANSMIT_REQUEST;
+          break;
+        case FinishedSendingEncoder.TEMPLATE_ID:
+          messageType = SessionMessageType.FINISHED_SENDING;
+          break;
+        case FinishedReceivingEncoder.TEMPLATE_ID:
+          messageType = SessionMessageType.FINISHED_RECEIVING;
           break;
       }
     }
@@ -449,15 +516,16 @@ class SbeSessionMessenger implements SessionMessenger {
     }
     sequenceMutableBuffer.wrap(sequenceBuffer);
     sequenceEncoder.wrapAndApplyHeader(sequenceMutableBuffer, 0, headerEncoder);
-    sequenceBuffer.limit(headerEncoder.encodedLength() + sequenceEncoder.encodedLength());
     notAppliedMutableBuffer.wrap(notAppliedBuffer);
     notAppliedEncoder.wrapAndApplyHeader(notAppliedMutableBuffer, 0, headerEncoder);
-    notAppliedBuffer.limit(headerEncoder.encodedLength() + notAppliedEncoder.encodedLength());
     retransmitRequestMutableBuffer.wrap(retransmitRequestBuffer);
     retransmitRequestEncoder.wrapAndApplyHeader(retransmitRequestMutableBuffer, 0, headerEncoder);
     retransmissionMutableBuffer.wrap(retransmissionBuffer);
-    retransmissionEncoder.wrapAndApplyHeader(retransmissionMutableBuffer, 0, headerEncoder);
-
+    retransmissionEncoder.wrapAndApplyHeader(retransmissionMutableBuffer, 0, headerEncoder);  
+    finishedSendingMutableBuffer.wrap(finishedSendingBuffer);
+    finishedSendingEncoder.wrapAndApplyHeader(finishedSendingMutableBuffer, 0, headerEncoder);
+    finishedReceivingMutableBuffer.wrap(finishedReceivingBuffer);
+    finishedReceivingEncoder.wrapAndApplyHeader(finishedReceivingMutableBuffer, 0, headerEncoder);
   }
 
   /**
@@ -466,6 +534,5 @@ class SbeSessionMessenger implements SessionMessenger {
   private boolean isClientSession() {
     return isClientSession;
   }
-
 
 }

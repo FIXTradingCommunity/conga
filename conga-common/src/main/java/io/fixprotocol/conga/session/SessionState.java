@@ -37,6 +37,10 @@ public enum SessionState {
    */
   NOT_ESTABLISHED,
   /**
+   * Finished sending application messages, waiting for confirmation
+   */
+  FINALIZE_REQUESTED,
+  /**
    * Logical flow is finalized; terminal state
    */
   FINALIZED

@@ -33,6 +33,14 @@ public enum SessionMessageType {
    */
   ESTABLISHMENT_REJECT,
   /**
+   * Finalize session response
+   */
+  FINISHED_RECEIVING,
+  /**
+   * Finalize session request
+   */
+  FINISHED_SENDING,
+  /**
    * Negotiate request message
    */
   NEGOTIATE,
@@ -55,12 +63,10 @@ public enum SessionMessageType {
   /**
    * A request to retransmit one or more missed messages
    */
-  RETRANSMIT_REQUEST,
-  /**
+  RETRANSMIT_REQUEST, /**
    * Sequence message, used as a heartbeat
    */
-  SEQUENCE,
-  /**
+  SEQUENCE, /**
    * Unknown message type
    */
   UNKNOWN

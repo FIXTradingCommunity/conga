@@ -30,9 +30,15 @@ public interface SessionMessenger {
   void decodeEstablishSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
 
+  void decodeFinishedReceiving(ByteBuffer buffer,
+      SessionSequenceAttributes sessionSequenceAttributes);
+
+  void decodeFinishedSending(ByteBuffer buffer,
+      SessionSequenceAttributes sessionSequenceAttributes);
+  
   void decodeNegotiateSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
-
+  
   void decodeNegotiationResponseSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
 
@@ -42,15 +48,19 @@ public interface SessionMessenger {
    * @return next message sequence number
    */
   long decodeSequence(ByteBuffer buffer);
-
+  
   ByteBuffer encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
       long nextSeqNo, byte[] credentials) throws IOException, InterruptedException;
-
+  
   ByteBuffer encodeEstablishAck(byte[] sessionId, long timestamp,
       long heartbeatInterval, long nextSeqNo) throws IOException, InterruptedException;
 
   ByteBuffer encodeEstablishReject(byte[] sessionId, long timestamp,
       EstablishmentReject rejectCode, byte[] reason) throws IOException, InterruptedException;
+
+  ByteBuffer encodeFinishedReceiving(byte[] sessionId);
+
+  ByteBuffer encodeFinishedSending(byte[] sessionId, long lastSeqNo);
 
   ByteBuffer encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
       byte[] credentials) throws IOException, InterruptedException;
