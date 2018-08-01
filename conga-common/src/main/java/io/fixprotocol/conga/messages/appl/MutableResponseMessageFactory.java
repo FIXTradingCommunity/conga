@@ -13,36 +13,17 @@
  *
  */
 
-package io.fixprotocol.conga.session;
+package io.fixprotocol.conga.messages.appl;
 
 /**
- * Immutable event emitted when Session state changes
+ * Message factory for exchange responses
  * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
+public interface MutableResponseMessageFactory {
 
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
-
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
-
-  public String getPrincipal() {
-    return principal;
-  }
-
-  public byte[] getSessionId() {
-    return sessionId;
-  }
-
-  public SessionState getState() {
-    return state;
-  }
+  MutableOrderCancelReject getOrderCancelReject();
   
+  MutableExecutionReport getExecutionReport();
 }

@@ -13,36 +13,43 @@
  *
  */
 
-package io.fixprotocol.conga.session;
+package io.fixprotocol.conga.messages.appl;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Iterator;
 
 /**
- * Immutable event emitted when Session state changes
- * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
+public interface ExecutionReport {
 
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
+  String getOrderId();
 
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
+  String getClOrdId();
 
-  public String getPrincipal() {
-    return principal;
-  }
+  String getExecId();
 
-  public byte[] getSessionId() {
-    return sessionId;
-  }
+  ExecType getExecType();
 
-  public SessionState getState() {
-    return state;
-  }
+  OrdStatus getOrdStatus();
+
+  String getSymbol();
+
+  Side getSide();
+
+  int getLeavesQty();
+
+  int getCumQty();
   
+  Instant getTransactTime();
+
+  interface Fill {
+    BigDecimal getFillPx();
+
+    int getFillQty();
+  }
+
+  Iterator<Fill> getFills();
 }

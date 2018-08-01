@@ -13,36 +13,26 @@
  *
  */
 
-package io.fixprotocol.conga.session;
+package io.fixprotocol.conga.messages.appl;
+
+import java.nio.ByteBuffer;
 
 /**
- * Immutable event emitted when Session state changes
- * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
+public interface Message {
 
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
+  /**
+   * The originator of this Message, e.g. session, firm or user ID
+   * 
+   * @return ID of the Message originator
+   */
+  String getSource();
 
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
-
-  public String getPrincipal() {
-    return principal;
-  }
-
-  public byte[] getSessionId() {
-    return sessionId;
-  }
-
-  public SessionState getState() {
-    return state;
-  }
-  
+  /**
+   * Returns a buffer suitable for transmission
+   * @return a populated buffer
+   */
+  ByteBuffer toBuffer();
 }

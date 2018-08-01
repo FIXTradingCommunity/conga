@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
 import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
-import io.fixprotocol.conga.session.sbe.SbeSession;
+import io.fixprotocol.conga.session.Session;
 
 /**
  * Server FIXP session
@@ -28,9 +28,9 @@ import io.fixprotocol.conga.session.sbe.SbeSession;
  * @author Don Mendelson
  *
  */
-public class ServerSession extends SbeSession {
+public class ServerSession extends Session {
 
-  public static class Builder extends SbeSession.Builder<ServerSession, Builder> {
+  public static class Builder extends Session.Builder<ServerSession, Builder> {
 
     @Override
     public ServerSession build() {

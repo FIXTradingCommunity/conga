@@ -60,7 +60,7 @@
 	<modules>
 		<module>conga-server</module>
 		<module>conga-client</module>
-		<module>conga-common-sbe</module>
+		<module>conga-sbe</module>
 		<module>conga-common</module>
 	</modules>
 

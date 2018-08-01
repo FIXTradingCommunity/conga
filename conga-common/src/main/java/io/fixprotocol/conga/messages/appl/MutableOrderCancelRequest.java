@@ -13,36 +13,40 @@
  *
  */
 
-package io.fixprotocol.conga.session;
+package io.fixprotocol.conga.messages.appl;
+
+import java.time.Instant;
 
 /**
- * Immutable event emitted when Session state changes
+ * Encodes an order cancel request message
  * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
+public interface MutableOrderCancelRequest extends MutableMessage {
 
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
+  /**
+   * Set client order ID to cancel
+   * @param clOrdId client order ID
+   */
+  void setClOrdId(String clOrdId);
 
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
+  /**
+   * Set order symbol
+   * @param symbol
+   */
+  void setSymbol(String symbol);
 
-  public String getPrincipal() {
-    return principal;
-  }
+  /**
+   * Set order side
+   * @param side
+   */
+  void setSide(Side side);
 
-  public byte[] getSessionId() {
-    return sessionId;
-  }
+  /**
+   * Set transaction time
+   * @param transactTime
+   */
+  void setTransactTime(Instant transactTime);
 
-  public SessionState getState() {
-    return state;
-  }
-  
 }

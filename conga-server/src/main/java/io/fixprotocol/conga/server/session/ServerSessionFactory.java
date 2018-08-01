@@ -19,23 +19,29 @@ import java.util.Timer;
 import java.util.concurrent.Executor;
 
 import io.fixprotocol.conga.buffer.BufferCache;
+import io.fixprotocol.conga.messages.spi.MessageProvider;
 import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.SessionFactory;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
 
 /**
+ * Creates new instances of ServerSession
+ * 
  * @author Don Mendelson
  *
  */
 public class ServerSessionFactory implements SessionFactory {
 
-  private final long heartbeatInterval;
-  private final Timer timer;
-  private final SessionMessageConsumer sessionMessageConsumer;
   private final Executor executor;
+  private final long heartbeatInterval;
+  private final MessageProvider messageProvider;
+  private final SessionMessageConsumer sessionMessageConsumer;
+  private final Timer timer;
 
-  public ServerSessionFactory(SessionMessageConsumer sessionMessageConsumer, Timer timer,
-      Executor executor, long heartbeatInterval) {
+  public ServerSessionFactory(MessageProvider messageProvider,
+      SessionMessageConsumer sessionMessageConsumer, Timer timer, Executor executor,
+      long heartbeatInterval) {
+    this.messageProvider = messageProvider;
     this.sessionMessageConsumer = sessionMessageConsumer;
     this.timer = timer;
     this.executor = executor;
@@ -44,13 +50,10 @@ public class ServerSessionFactory implements SessionFactory {
 
   @Override
   public ServerSession newInstance() {
-    return ServerSession.builder().timer(timer)
-        .heartbeatInterval(heartbeatInterval)
-        .sessionMessageConsumer(sessionMessageConsumer)
-        .outboundFlowType(FlowType.Recoverable)
-        .sendCache(new BufferCache())
-        .executor(executor)
-        .build();
+    return ServerSession.builder().timer(timer).heartbeatInterval(heartbeatInterval)
+        .sessionMessenger(messageProvider.getSessionMessenger())
+        .sessionMessageConsumer(sessionMessageConsumer).outboundFlowType(FlowType.Recoverable)
+        .sendCache(new BufferCache()).executor(executor).build();
   }
 
 }

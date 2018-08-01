@@ -13,36 +13,27 @@
  *
  */
 
-package io.fixprotocol.conga.session;
+package io.fixprotocol.conga.messages.appl;
 
 /**
- * Immutable event emitted when Session state changes
+ * A message structure to populate
  * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
-
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
-
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
-
-  public String getPrincipal() {
-    return principal;
-  }
-
-  public byte[] getSessionId() {
-    return sessionId;
-  }
-
-  public SessionState getState() {
-    return state;
-  }
+public interface MutableMessage extends Message {
   
+  /**
+   * Release the underlying buffer and any other resources
+   */
+  void release();
+
+
+  
+  /**
+   * The originator of this Message, e.g. session, firm or user ID
+   * 
+   * @param source ID of the Message originator
+   */
+  void setSource(String source);
 }

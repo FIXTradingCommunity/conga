@@ -36,19 +36,18 @@ import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 import io.fixprotocol.conga.client.io.ClientEndpoint;
 import io.fixprotocol.conga.client.session.ClientSession;
-import io.fixprotocol.conga.messages.ApplicationMessageConsumer;
-import io.fixprotocol.conga.messages.Message;
-import io.fixprotocol.conga.messages.MessageException;
-import io.fixprotocol.conga.messages.MutableMessage;
-import io.fixprotocol.conga.messages.MutableNewOrderSingle;
-import io.fixprotocol.conga.messages.MutableOrderCancelRequest;
-import io.fixprotocol.conga.messages.MutableRequestMessageFactory;
-import io.fixprotocol.conga.messages.ResponseMessageFactory;
-import io.fixprotocol.conga.messages.sbe.SbeMutableRequestMessageFactory;
-import io.fixprotocol.conga.messages.sbe.SbeResponseMessageFactory;
+import io.fixprotocol.conga.messages.appl.ApplicationMessageConsumer;
+import io.fixprotocol.conga.messages.appl.Message;
+import io.fixprotocol.conga.messages.appl.MessageException;
+import io.fixprotocol.conga.messages.appl.MutableMessage;
+import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
+import io.fixprotocol.conga.messages.appl.MutableOrderCancelRequest;
+import io.fixprotocol.conga.messages.appl.MutableRequestMessageFactory;
+import io.fixprotocol.conga.messages.appl.ResponseMessageFactory;
+import io.fixprotocol.conga.messages.session.SessionMessenger;
+import io.fixprotocol.conga.messages.spi.MessageProvider;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
 import io.fixprotocol.conga.session.SessionState;
-import io.fixprotocol.conga.session.ProtocolViolationException;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.SessionEvent;
 
@@ -90,6 +89,7 @@ public class Trader implements AutoCloseable {
       return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
     }
 
+    private String encoding;
     private Consumer<Throwable> errorListener = null;
     private String host = DEFAULT_HOST;
     private ApplicationMessageConsumer messageListener = null;
@@ -110,6 +110,11 @@ public class Trader implements AutoCloseable {
       return new Trader(this);
     }
 
+    public Builder encoding(String encoding) {
+      this.encoding = encoding;
+      return this;
+    }
+    
     public Builder errorListener(Consumer<Throwable> errorListener) {
       this.errorListener = errorListener;
       return this;
@@ -158,7 +163,7 @@ public class Trader implements AutoCloseable {
 
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private Consumer<Throwable> errorListener = (t) -> t.printStackTrace();
+  private Consumer<Throwable> errorListener = Throwable::printStackTrace;
   private Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
 
 
@@ -213,30 +218,16 @@ public class Trader implements AutoCloseable {
 
   private final ReentrantLock lock = new ReentrantLock();
   private ApplicationMessageConsumer messageListener = null;
-  private final MutableRequestMessageFactory requestFactory =
-      new SbeMutableRequestMessageFactory(bufferSupplier);
-
-  private final ResponseMessageFactory responseFactory = new SbeResponseMessageFactory();
+  private final MutableRequestMessageFactory requestFactory;
+  private final ResponseMessageFactory responseFactory;
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
-  
-  // Consumes application messages from Session
-  private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
-    Message message;
-    try {
-      message = responseFactory.wrap(buffer);
-      messageListener.accept(source, message, seqNo);
-    } catch (MessageException e) {
-      errorListener.accept(e);
-    }
-
-  };
-  
+  private SessionMessenger sessionMessenger;
   private Condition sessionStateCondition;
   private Subscription subscription;
   private final int timeoutSeconds;
   private final Timer timer = new Timer("Client-timer", true);
-
+  
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
     try {
@@ -248,6 +239,18 @@ public class Trader implements AutoCloseable {
       session.disconnected();
     }
   };
+  // Consumes application messages from Session
+  private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
+    Message message;
+    try {
+      message = getResponseFactory().wrap(buffer);
+      messageListener.accept(source, message, seqNo);
+    } catch (MessageException e) {
+      errorListener.accept(e);
+    }
+
+  };
+
   private Trader(Builder builder) {
     this.messageListener =
         Objects.requireNonNull(builder.messageListener, "Message listener not set");
@@ -255,7 +258,10 @@ public class Trader implements AutoCloseable {
     this.timeoutSeconds = builder.timeoutSeconds;
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
-
+    MessageProvider messageProvider = MessageProvider.provider(builder.encoding);
+    this.requestFactory = messageProvider.getMutableRequestMessageFactory(bufferSupplier);
+    this.responseFactory = messageProvider.getResponseMessageFactory();
+    this.sessionMessenger = messageProvider.getSessionMessenger();
     sessionStateCondition = lock.newCondition();
   }
 
@@ -273,24 +279,6 @@ public class Trader implements AutoCloseable {
         }
       }
       ringBuffer.stop();
-    } catch (Exception e) {
-      errorListener.accept(e);
-    }
-  }
-
-  public void suspend() {
-    try {
-      if (session != null) {
-        try {
-          lock.lockInterruptibly();
-          endpoint.close();
-          while (session.getSessionState() != SessionState.NOT_ESTABLISHED) {
-            sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
-          }
-        } finally {
-          lock.unlock();
-        }
-      }
     } catch (Exception e) {
       errorListener.accept(e);
     }
@@ -333,7 +321,7 @@ public class Trader implements AutoCloseable {
       UUID uuid = UUID.randomUUID();
       this.session = ClientSession.builder().sessionId(Session.UUIDAsBytes(uuid)).timer(timer)
           .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
-          .sessionMessageConsumer(sessionMessageConsumer).build();
+          .sessionMessageConsumer(sessionMessageConsumer).sessionMessenger(sessionMessenger).build();
       session.subscribeForEvents(eventSubscriber);
 
     }
@@ -364,6 +352,24 @@ public class Trader implements AutoCloseable {
     }
   }
 
+  public void suspend() {
+    try {
+      if (session != null) {
+        try {
+          lock.lockInterruptibly();
+          endpoint.close();
+          while (session.getSessionState() != SessionState.NOT_ESTABLISHED) {
+            sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
+          }
+        } finally {
+          lock.unlock();
+        }
+      }
+    } catch (Exception e) {
+      errorListener.accept(e);
+    }
+  }
+
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
@@ -372,14 +378,18 @@ public class Trader implements AutoCloseable {
     return builder.toString();
   }
 
-  private void cancelEventSubscription() {
+  
+  Consumer<Throwable> getErrorListener() {
+    return errorListener;
+  }
+
+  void cancelEventSubscription() {
     if (subscription != null) {
       subscription.cancel();
     }
   }
 
-  Consumer<Throwable> getErrorListener() {
-    return errorListener;
+  private ResponseMessageFactory getResponseFactory() {
+    return responseFactory;
   }
-
 }

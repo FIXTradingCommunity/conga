@@ -26,11 +26,11 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import io.fixprotocol.conga.messages.ApplicationMessageConsumer;
-import io.fixprotocol.conga.messages.Message;
-import io.fixprotocol.conga.messages.MutableNewOrderSingle;
-import io.fixprotocol.conga.messages.OrdType;
-import io.fixprotocol.conga.messages.Side;
+import io.fixprotocol.conga.messages.appl.ApplicationMessageConsumer;
+import io.fixprotocol.conga.messages.appl.Message;
+import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
+import io.fixprotocol.conga.messages.appl.OrdType;
+import io.fixprotocol.conga.messages.appl.Side;
 
 /**
  * Requires running Exchange
@@ -84,7 +84,7 @@ public class TraderTest {
     listener.reset();
 
     trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
-        .messageListener(listener).errorListener(errorHandler).build();
+        .messageListener(listener).errorListener(errorHandler).encoding("SBE").build();
     trader.open();
   }
 

@@ -13,36 +13,10 @@
  *
  */
 
-package io.fixprotocol.conga.session;
-
 /**
- * Immutable event emitted when Session state changes
+ * Concrete SBE encoders and decoders for trading messages
  * 
  * @author Don Mendelson
  *
  */
-public class SessionEvent {
-
-  private final String principal;
-  private final byte [] sessionId;
-  private final SessionState state;
-
-  public SessionEvent(SessionState state, byte[] sessionId, String principal) {
-    this.state = state;
-    this.sessionId = sessionId;
-    this.principal = principal;
-  }
-
-  public String getPrincipal() {
-    return principal;
-  }
-
-  public byte[] getSessionId() {
-    return sessionId;
-  }
-
-  public SessionState getState() {
-    return state;
-  }
-  
-}
+package io.fixprotocol.conga.sbe.messages.appl;

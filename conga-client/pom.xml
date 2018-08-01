@@ -15,8 +15,14 @@
 	<dependencies>
 		<dependency>
 			<groupId>io.fixprotocol.conga</groupId>
-			<artifactId>conga-common-sbe</artifactId>
+			<artifactId>conga-common</artifactId>
 			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.fixprotocol.conga</groupId>
+			<artifactId>conga-sbe</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
@@ -33,6 +39,13 @@
 					<showDeprecation>true</showDeprecation>
 					<compilerArgument>--add-modules=jdk.incubator.httpclient</compilerArgument>
 				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.ow2.asm</groupId>
+						<artifactId>asm</artifactId>
+						<version>6.2</version> <!-- Use newer version of ASM -->
+					</dependency>
+				</dependencies>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

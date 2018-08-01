@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.fixprotocol.conga.messages.MessageException;
+import io.fixprotocol.conga.messages.appl.MessageException;
+import io.fixprotocol.conga.messages.session.SessionMessenger;
 
 /**
  * Abstract FIXP session, independent of encoding

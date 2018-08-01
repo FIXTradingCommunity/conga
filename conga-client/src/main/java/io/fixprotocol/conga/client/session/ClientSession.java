@@ -22,17 +22,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import io.fixprotocol.conga.client.io.ClientEndpoint;
-import io.fixprotocol.conga.session.sbe.SbeSession;
+import io.fixprotocol.conga.session.Session;
 
 /**
  * @author Don Mendelson
  *
  */
-public class ClientSession extends SbeSession {
+public class ClientSession extends Session {
 
   private ClientEndpoint transport;
   
-  public static class Builder extends SbeSession.Builder<ClientSession, Builder> {
+  public static class Builder extends Session.Builder<ClientSession, Builder> {
 
     @Override
     public ClientSession build() {
