@@ -15,11 +15,11 @@
 
 package io.fixprotocol.conga.sbe.messages.session;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
+import io.fixprotocol.conga.messages.appl.MutableMessage;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishDecoder;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishEncoder;
@@ -57,10 +57,44 @@ import io.fixprotocol.conga.session.SessionMessageType;
 import io.fixprotocol.conga.session.SessionSequenceAttributes;
 
 /**
+ * SBE encoding/decoding of FIXP session messages
+ * <p>
+ * This implementation uses off-heap buffers dedicated by message type
  * @author Don Mendelson
  *
  */
 public class SbeSessionMessenger implements SessionMessenger {
+  
+  // wraps dedicated buffers for SBE session messages
+  private class SbeMutableMessage implements MutableMessage {
+    private String source;
+    private ByteBuffer buffer;
+    
+    SbeMutableMessage(ByteBuffer buffer) {
+      this.buffer = buffer;
+    }
+
+    @Override
+    public String getSource() {
+      return source;
+    }
+
+    @Override
+    public void release() {
+      
+    }
+
+    @Override
+    public void setSource(String source) {
+      this.source = source;
+    }
+
+    @Override
+    public ByteBuffer toBuffer() {
+      return buffer;
+    }
+    
+  }
 
   private final UnsafeBuffer directBuffer = new UnsafeBuffer();
   private ByteBuffer establishBuffer;
@@ -217,8 +251,8 @@ public class SbeSessionMessenger implements SessionMessenger {
     return sequenceDecoder.nextSeqNo();
   }
 
-  public ByteBuffer encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
-      long nextSeqNo, byte[] credentials) throws IOException, InterruptedException {
+  public MutableMessage encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
+      long nextSeqNo, byte[] credentials) {
     if (!isClientSession()) {
       throw new IllegalStateException("Establish invoked for server session");
     }
@@ -230,12 +264,12 @@ public class SbeSessionMessenger implements SessionMessenger {
       establishEncoder.putCredentials(credentials, 0, credentials.length);
     }
     establishBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + establishEncoder.encodedLength());
-    return establishBuffer.duplicate();
+    return new SbeMutableMessage(establishBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeEstablishAck(byte[] sessionId, long timestamp, long heartbeatInterval,
-      long nextSeqNo) throws IOException, InterruptedException {
+  public MutableMessage encodeEstablishmentAck(byte[] sessionId, long timestamp, long heartbeatInterval,
+      long nextSeqNo) {
     if (isClientSession()) {
       throw new IllegalStateException("Establish Ack invoked for client session");
     }
@@ -248,12 +282,12 @@ public class SbeSessionMessenger implements SessionMessenger {
     establishmentAckEncoder
         .limit(MessageHeaderEncoder.ENCODED_LENGTH + establishmentAckEncoder.encodedLength());
 
-    return establishmentAckBuffer.duplicate();
+    return new SbeMutableMessage(establishmentAckBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeEstablishReject(byte[] sessionId, long timestamp,
-      EstablishmentReject rejectCode, byte[] reason) throws IOException, InterruptedException {
+  public MutableMessage encodeEstablishmentReject(byte[] sessionId, long timestamp,
+      EstablishmentReject rejectCode, byte[] reason) {
     if (isClientSession()) {
       throw new IllegalStateException("Establish Reject invoked for client session");
     }
@@ -266,31 +300,31 @@ public class SbeSessionMessenger implements SessionMessenger {
     establishmentRejectEncoder
         .limit(MessageHeaderEncoder.ENCODED_LENGTH + establishmentRejectEncoder.encodedLength());
 
-    return establishmentRejectBuffer.duplicate();
+    return new SbeMutableMessage(establishmentRejectBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeFinishedReceiving(byte[] sessionId) {
+  public MutableMessage encodeFinishedReceiving(byte[] sessionId) {
     for (int i = 0; i < FinishedReceivingEncoder.sessionIdLength(); i++) {
       finishedReceivingEncoder.sessionId(i, sessionId[i]);
     }
     finishedReceivingBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + finishedReceivingEncoder.encodedLength());
-    return finishedReceivingBuffer.duplicate();
+    return new SbeMutableMessage(finishedReceivingBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeFinishedSending(byte[] sessionId, long lastSeqNo) {
+  public MutableMessage encodeFinishedSending(byte[] sessionId, long lastSeqNo) {
     for (int i = 0; i < FinishedSendingEncoder.sessionIdLength(); i++) {
       finishedSendingEncoder.sessionId(i, sessionId[i]);
     }
     finishedSendingEncoder.lastSeqNo(lastSeqNo);
     finishedSendingBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + finishedSendingEncoder.encodedLength());
-    return finishedSendingBuffer.duplicate();
+    return new SbeMutableMessage(finishedSendingBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
-      byte[] credentials) throws IOException, InterruptedException {
+  public MutableMessage encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
+      byte[] credentials) {
     if (!isClientSession()) {
       throw new IllegalStateException("Negotiate invoked for server session");
     }
@@ -304,12 +338,12 @@ public class SbeSessionMessenger implements SessionMessenger {
       negotiateEncoder.putCredentials(credentials, 0, credentials.length);
     }
     negotiateBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiateEncoder.encodedLength());
-    return negotiateBuffer.duplicate();
+    return new SbeMutableMessage(negotiateBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
-      NegotiationReject rejectCode, byte[] reason) throws IOException, InterruptedException {
+  public MutableMessage encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
+      NegotiationReject rejectCode, byte[] reason) {
     if (isClientSession()) {
       throw new IllegalStateException("NegotiationReject invoked for client session");
     }
@@ -322,12 +356,12 @@ public class SbeSessionMessenger implements SessionMessenger {
     negotiationRejectBuffer
         .limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiationRejectEncoder.encodedLength());
 
-    return negotiationRejectBuffer.duplicate();
+    return new SbeMutableMessage(negotiationRejectBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
-      FlowType serverFlow, byte[] credentials) throws IOException, InterruptedException {
+  public MutableMessage encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
+      FlowType serverFlow, byte[] credentials) {
     if (isClientSession()) {
       throw new IllegalStateException("NegotiationResponse invoked for client session");
     }
@@ -342,20 +376,18 @@ public class SbeSessionMessenger implements SessionMessenger {
     }
     negotiationResponseBuffer
         .limit(MessageHeaderEncoder.ENCODED_LENGTH + negotiationResponseEncoder.encodedLength());
-    return negotiationResponseBuffer.duplicate();
+    return new SbeMutableMessage(negotiationResponseBuffer.duplicate());
   }
 
-  public ByteBuffer encodeNotApplied(long fromSeqNo, long count)
-      throws IOException, InterruptedException {
+  public MutableMessage encodeNotApplied(long fromSeqNo, long count) {
     notAppliedEncoder.fromSeqNo(fromSeqNo);
     notAppliedEncoder.count(count);
     notAppliedBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + notAppliedEncoder.encodedLength());
-    return notAppliedBuffer.duplicate();
+    return new SbeMutableMessage(notAppliedBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeRetransmission(byte[] sessionId, SequenceRange range)
-      throws IOException, InterruptedException {
+  public MutableMessage encodeRetransmission(byte[] sessionId, SequenceRange range) {
     for (int i = 0; i < RetransmissionEncoder.sessionIdLength(); i++) {
       retransmissionEncoder.sessionId(i, sessionId[i]);
     }
@@ -365,12 +397,11 @@ public class SbeSessionMessenger implements SessionMessenger {
     retransmissionBuffer
     .limit(MessageHeaderEncoder.ENCODED_LENGTH + retransmissionEncoder.encodedLength());
 
-    return retransmissionBuffer.duplicate();
+    return new SbeMutableMessage(retransmissionBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeRetransmitRequest(byte[] sessionId, SequenceRange range)
-      throws IOException, InterruptedException {
+  public MutableMessage encodeRetransmitRequest(byte[] sessionId, SequenceRange range) {
     for (int i = 0; i < RetransmitRequestEncoder.sessionIdLength(); i++) {
       retransmitRequestEncoder.sessionId(i, sessionId[i]);
     }
@@ -380,14 +411,14 @@ public class SbeSessionMessenger implements SessionMessenger {
     retransmitRequestBuffer
     .limit(MessageHeaderEncoder.ENCODED_LENGTH + retransmitRequestEncoder.encodedLength());
 
-    return retransmitRequestBuffer.duplicate();
+    return new SbeMutableMessage(retransmitRequestBuffer.duplicate());
   }
 
   @Override
-  public ByteBuffer encodeSequence(long nextSeqNo) throws IOException, InterruptedException {
+  public MutableMessage encodeSequence(long nextSeqNo) {
     sequenceEncoder.nextSeqNo(nextSeqNo);
     sequenceBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + sequenceEncoder.encodedLength());
-    return sequenceBuffer.duplicate();
+    return new SbeMutableMessage(sequenceBuffer.duplicate());
   }
 
   @Override
@@ -443,7 +474,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public void getRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range) {
+  public void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range) {
     directBuffer.wrap(buffer);
     headerDecoder.wrap(directBuffer, 0);
     retransmissionDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
@@ -453,7 +484,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public void getRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range) {
+  public void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range) {
     directBuffer.wrap(buffer);
     headerDecoder.wrap(directBuffer, 0);
     retransmitRequestDecoder.wrap(directBuffer, headerDecoder.encodedLength(),

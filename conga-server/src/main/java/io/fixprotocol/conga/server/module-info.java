@@ -7,5 +7,7 @@ module conga.server {
 	requires jetty.servlet;
 	requires jetty.util;
 	requires websocket.servlet;
+	// expose callback methods
+	exports io.fixprotocol.conga.server.io;
     uses io.fixprotocol.conga.messages.spi.MessageProvider;
 }

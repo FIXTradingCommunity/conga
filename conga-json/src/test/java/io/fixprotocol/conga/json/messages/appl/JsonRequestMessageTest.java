@@ -1,0 +1,108 @@
+/*
+ * Copyright 2018 FIX Protocol Ltd
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ */
+
+package io.fixprotocol.conga.json.messages.appl;
+
+import static org.junit.Assert.assertEquals;
+
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import io.fixprotocol.conga.buffer.BufferSupplier;
+import io.fixprotocol.conga.buffer.SingleBufferSupplier;
+import io.fixprotocol.conga.messages.appl.MessageException;
+import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
+import io.fixprotocol.conga.messages.appl.MutableOrderCancelRequest;
+import io.fixprotocol.conga.messages.appl.OrdType;
+import io.fixprotocol.conga.messages.appl.Side;
+
+/**
+ * @author Don Mendelson
+ *
+ */
+public class JsonRequestMessageTest {
+  
+  private JsonMutableRequestMessageFactory mutableFactory;
+  private JsonRequestMessageFactory factory;
+  private BufferSupplier bufferSupplier;
+
+  /**
+   * @throws java.lang.Exception
+   */
+  @Before
+  public void setUp() throws Exception {
+    bufferSupplier = new SingleBufferSupplier(ByteBuffer.allocate(1024));
+    mutableFactory = new JsonMutableRequestMessageFactory(bufferSupplier);
+    factory = new JsonRequestMessageFactory();
+  }
+
+  @Test
+  public void newOrderSingle() throws MessageException {
+    MutableNewOrderSingle mutableOrder = mutableFactory.getNewOrderSingle();
+    String clOrdId = "C0001";
+    mutableOrder.setClOrdId(clOrdId);
+    int orderQty = 3;
+    mutableOrder.setOrderQty(orderQty);
+    OrdType ordType = OrdType.Limit;
+    mutableOrder.setOrdType(ordType);
+    BigDecimal price = new BigDecimal("54.32");
+    mutableOrder.setPrice(price);
+    Side side = Side.Sell;
+    mutableOrder.setSide(side);
+    String source = "S1";
+    mutableOrder.setSource(source);
+    String symbol = "XYZ";
+    mutableOrder.setSymbol(symbol);
+    Instant transactTime = Instant.now();
+    mutableOrder.setTransactTime(transactTime);
+    ByteBuffer buffer = mutableOrder.toBuffer();
+    
+    factory.wrap(buffer);
+    JsonNewOrderSingle order = factory.getNewOrderSingle();
+    assertEquals(clOrdId, order.getClOrdId());
+    assertEquals(orderQty, order.getOrderQty());
+    assertEquals(ordType, order.getOrdType());
+    assertEquals(price, order.getPrice());
+    assertEquals(side, order.getSide());
+    assertEquals(symbol, order.getSymbol());
+    assertEquals(transactTime, order.getTransactTime());
+  }
+
+  @Test
+  public void orderCancelRequest() throws MessageException {
+    MutableOrderCancelRequest mutableCancel = mutableFactory.getOrderCancelRequest();
+    String clOrdId = "C0001";
+    mutableCancel.setClOrdId(clOrdId);
+    Side side = Side.Buy;
+    mutableCancel.setSide(side);
+    String symbol = "XYZ";
+    mutableCancel.setSymbol(symbol);
+    Instant transactTime = Instant.now();
+    mutableCancel.setTransactTime(transactTime);
+    ByteBuffer buffer = mutableCancel.toBuffer();
+    
+    factory.wrap(buffer);
+    JsonOrderCancelRequest cancel = factory.getOrderCancelRequest();
+    assertEquals(clOrdId, cancel.getClOrdId());
+    assertEquals(side, cancel.getSide());
+    assertEquals(symbol, cancel.getSymbol());
+    assertEquals(transactTime, cancel.getTransactTime());
+  }
+
+}

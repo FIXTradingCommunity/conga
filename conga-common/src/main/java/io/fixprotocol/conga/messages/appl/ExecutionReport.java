@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Iterator;
 
+import io.fixprotocol.conga.messages.appl.ExecutionReport.Fill;
+
 /**
  * @author Don Mendelson
  *
@@ -51,5 +53,5 @@ public interface ExecutionReport {
     int getFillQty();
   }
 
-  Iterator<Fill> getFills();
+  Iterator<? extends Fill> getFills();
 }

@@ -107,7 +107,7 @@ public class SbeResponseTest {
       assertEquals(symbol, decoder.getSymbol());
       assertEquals(transactTime, decoder.getTransactTime());
       
-      Iterator<Fill> fillIter = decoder.getFills();
+      Iterator<? extends Fill> fillIter = decoder.getFills();
       assertTrue(fillIter.hasNext());
       Fill fillDecoder = fillIter.next();
       assertEquals(fillPx, fillDecoder.getFillPx());

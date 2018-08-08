@@ -16,7 +16,11 @@ Application messages convey FIX semantics. See [FIX Application Level](https://w
 
 ### Presentation Layer
 
-Messages are encoded in [Simple Binary Encoding](https://github.com/FIXTradingCommunity/fix-simple-binary-encoding), a FIX standard. The implementation is very low latency due to its use of native binary data types and deterministic message layouts controlled by templates.
+Two message encodings are provided:
+
+[Simple Binary Encoding](https://github.com/FIXTradingCommunity/fix-simple-binary-encoding), a FIX standard. The implementation is very low latency due to its use of native binary data types and deterministic message layouts controlled by templates.
+
+JSON encoding is conducive to web UI development. It is not, however, considered low latency.
 
 Message framing is performed by [WebSocket protocol](https://tools.ietf.org/html/rfc6455).
 
@@ -36,7 +40,7 @@ As part of the initial HTTP contact, a TLS handshake negotiates cipher suites an
 
 ## Planned Enhancements
 
-* Use alternative encodings, e.g. Google Protocol Buffers, or JSON (not high performance)
+* Use alternative encodings
 * Enhanced client authentication
 
 ## Prerequisites
@@ -46,7 +50,13 @@ This project requires Java 10 or later. It should run on any platform for which 
 
 The project uses HTTPClient in module `jdk.incubator.httpclient` that is distributed with the JDK. Since it is still an incubator module, the module and package names will definitely change in the future.
 
-The server implementation of WebSocket is provided by Jetty.
+#### Dependencies
+
+* The server implementation of WebSocket is provided by Jetty.
+
+* JSON implementation is provided by Google's Gson library.
+
+* SBE code generation by Real-Logic's SBE tool.
 
 ### Build
 The project is built with Maven version 3.0 or later. 

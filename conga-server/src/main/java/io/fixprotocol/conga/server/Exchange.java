@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Timer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -107,8 +108,14 @@ public class Exchange implements AutoCloseable {
    * @throws Exception if WebSocket server fails to start
    */
   public static void main(String[] args) throws Exception {
-    // Use communication defaults and SBE encoding
-    try (Exchange exchange = Exchange.builder().encoding("SBE").build()) {
+    // Use communication defaults and SBE encoding by default
+    String encoding = "SBE";
+    
+    if (args.length > 0) {
+      encoding = args[0];
+    }
+    
+    try (Exchange exchange = Exchange.builder().encoding(encoding).build()) {
       exchange.open();
       final Object monitor = new Object();
 
@@ -183,7 +190,7 @@ public class Exchange implements AutoCloseable {
     this.port = builder.port;
     this.contextPath = builder.contextPath;
     this.incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
-    MessageProvider messageProvider = MessageProvider.provider(builder.encoding);
+    MessageProvider messageProvider = provider(builder.encoding);
     this.requestMessageFactory = messageProvider.getRequestMessageFactory();
     MutableResponseMessageFactory responseMessageFactory =
         messageProvider.getMutableResponseMessageFactory(outgoingBufferSupplier);
@@ -191,6 +198,22 @@ public class Exchange implements AutoCloseable {
     this.sessions = new ServerSessions(new ServerSessionFactory(messageProvider,
         sessionMessageConsumer, timer, executor, builder.heartbeatInterval));
   }
+  
+  /**
+   * Locate a service provider for an application message encoding
+   * @param name encoding name
+   * @return a service provider
+   */
+  private MessageProvider provider(String name) {
+    ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
+    for (MessageProvider provider : loader) {
+      if (provider.name().equals(name)) {
+        return provider;
+      }
+    }
+    throw new RuntimeException("No MessageProvider found");
+  }
+
 
   @Override
   public void close() {

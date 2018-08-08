@@ -15,9 +15,9 @@
 
 package io.fixprotocol.conga.messages.session;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import io.fixprotocol.conga.messages.appl.MutableMessage;
 import io.fixprotocol.conga.session.EstablishmentReject;
 import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.NegotiationReject;
@@ -28,6 +28,9 @@ import io.fixprotocol.conga.session.SessionSequenceAttributes;
 
 /**
  * Abstraction of session message encoders and decoders
+ * <p>
+ * Encode methods should provide a ByteBuffer that is ready to transmit. The position should
+ * be 0 and limit set to the message size.
  * 
  * @author Don Mendelson
  *
@@ -59,44 +62,41 @@ public interface SessionMessenger {
    */
   long decodeSequence(ByteBuffer buffer);
   
-  ByteBuffer encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
-      long nextSeqNo, byte[] credentials) throws IOException, InterruptedException;
+  MutableMessage encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
+      long nextSeqNo, byte[] credentials);
   
-  ByteBuffer encodeEstablishAck(byte[] sessionId, long timestamp,
-      long heartbeatInterval, long nextSeqNo) throws IOException, InterruptedException;
+  MutableMessage encodeEstablishmentAck(byte[] sessionId, long timestamp,
+      long heartbeatInterval, long nextSeqNo);
 
-  ByteBuffer encodeEstablishReject(byte[] sessionId, long timestamp,
-      EstablishmentReject rejectCode, byte[] reason) throws IOException, InterruptedException;
+  MutableMessage encodeEstablishmentReject(byte[] sessionId, long timestamp,
+      EstablishmentReject rejectCode, byte[] reason);
 
-  ByteBuffer encodeFinishedReceiving(byte[] sessionId);
+  MutableMessage encodeFinishedReceiving(byte[] sessionId);
 
-  ByteBuffer encodeFinishedSending(byte[] sessionId, long lastSeqNo);
+  MutableMessage encodeFinishedSending(byte[] sessionId, long lastSeqNo);
 
-  ByteBuffer encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
-      byte[] credentials) throws IOException, InterruptedException;
+  MutableMessage encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
+      byte[] credentials);
 
-  ByteBuffer encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
-      NegotiationReject rejectCode, byte[] reason) throws IOException, InterruptedException;
+  MutableMessage encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
+      NegotiationReject rejectCode, byte[] reason);
 
-  ByteBuffer encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
-      FlowType serverFlow, byte[] credentials) throws IOException, InterruptedException;
+  MutableMessage encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
+      FlowType serverFlow, byte[] credentials);
 
-  ByteBuffer encodeNotApplied(long fromSeqNo, long count)
-      throws IOException, InterruptedException;
+  MutableMessage encodeNotApplied(long fromSeqNo, long count);
 
-  ByteBuffer encodeRetransmission(byte[] sessionId, SequenceRange range)
-      throws IOException, InterruptedException;
+  MutableMessage encodeRetransmission(byte[] sessionId, SequenceRange range);
 
-  ByteBuffer encodeRetransmitRequest(byte[] sessionId, SequenceRange range)
-      throws IOException, InterruptedException;
+  MutableMessage encodeRetransmitRequest(byte[] sessionId, SequenceRange range);
 
-  ByteBuffer encodeSequence(long nextSeqNo) throws IOException, InterruptedException;
+  MutableMessage encodeSequence(long nextSeqNo);
 
   SessionMessageType getMessageType(ByteBuffer buffer);
 
-  void getRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range);
+  void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range);
 
-  void getRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range);
+  void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range);
 
   /**
    * Initialize

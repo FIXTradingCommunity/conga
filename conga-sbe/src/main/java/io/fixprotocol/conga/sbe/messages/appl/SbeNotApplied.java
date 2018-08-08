@@ -52,11 +52,6 @@ public class SbeNotApplied implements NotApplied, SbeMessageWrapper{
   public void setSource(String source) {
     this.source = source;
   }
-
-  @Override
-  public ByteBuffer toBuffer() {
-    return directBuffer.byteBuffer();
-  }
   
   @Override
   public void wrap(ByteBuffer buffer, int offset, int actingBlockLength, int actingVersion) {

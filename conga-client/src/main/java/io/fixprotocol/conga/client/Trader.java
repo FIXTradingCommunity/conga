@@ -20,6 +20,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Timer;
 import java.util.UUID;
 import java.util.concurrent.Flow.Subscriber;
@@ -46,10 +47,10 @@ import io.fixprotocol.conga.messages.appl.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.appl.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.messages.spi.MessageProvider;
-import io.fixprotocol.conga.session.SessionMessageConsumer;
-import io.fixprotocol.conga.session.SessionState;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.SessionEvent;
+import io.fixprotocol.conga.session.SessionMessageConsumer;
+import io.fixprotocol.conga.session.SessionState;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -90,7 +91,7 @@ public class Trader implements AutoCloseable {
     }
 
     private String encoding;
-    private Consumer<Throwable> errorListener = null;
+    private Consumer<Throwable> errorListener = Throwable::printStackTrace;
     private String host = DEFAULT_HOST;
     private ApplicationMessageConsumer messageListener = null;
     private String path = DEFAULT_PATH;
@@ -114,7 +115,7 @@ public class Trader implements AutoCloseable {
       this.encoding = encoding;
       return this;
     }
-    
+
     public Builder errorListener(Consumer<Throwable> errorListener) {
       this.errorListener = errorListener;
       return this;
@@ -163,7 +164,7 @@ public class Trader implements AutoCloseable {
 
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private Consumer<Throwable> errorListener = Throwable::printStackTrace;
+  private Consumer<Throwable> errorListener;
   private Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
 
 
@@ -228,17 +229,6 @@ public class Trader implements AutoCloseable {
   private final int timeoutSeconds;
   private final Timer timer = new Timer("Client-timer", true);
   
-  // Consumes messages from ring buffer
-  private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
-    try {
-      session.messageReceived(buffer);
-    } catch (Exception e) {
-      if (getErrorListener() != null) {
-        getErrorListener().accept(e);
-      }
-      session.disconnected();
-    }
-  };
   // Consumes application messages from Session
   private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -250,7 +240,58 @@ public class Trader implements AutoCloseable {
     }
 
   };
+  
+  // Consumes messages from ring buffer
+  private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
+    try {
+      session.messageReceived(buffer);
+    } catch (Exception e) {
+      if (getErrorListener() != null) {
+        getErrorListener().accept(e);
+      }
+      session.disconnected();
+    }
+  };
 
+  /**
+   * Invoke application to test connectivity
+   * @param args
+   * @throws Exception
+   */
+  public static void main(String[] args) throws Exception {
+    // Use communication defaults and SBE encoding by default
+    String encoding = "SBE";
+    
+    if (args.length > 0) {
+      encoding = args[0];
+    }
+    
+    try (Trader trader = Trader.builder().host("localhost").port(8025).path("/trade")
+        .encoding(encoding).messageListener(new ApplicationMessageConsumer() {
+
+          @Override
+          public void accept(String source, Message message, long seqNo) {
+                        
+          }}).build()) {
+      trader.open();
+      final Object monitor = new Object();
+
+      new Thread(() -> {
+
+        boolean running = true;
+        while (running) {
+          synchronized (monitor) {
+            try {
+              monitor.wait();
+            } catch (InterruptedException e) {
+              running = false;
+            }
+          }
+        }
+        trader.close();
+      });
+    }
+  }
   private Trader(Builder builder) {
     this.messageListener =
         Objects.requireNonNull(builder.messageListener, "Message listener not set");
@@ -258,12 +299,13 @@ public class Trader implements AutoCloseable {
     this.timeoutSeconds = builder.timeoutSeconds;
     this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
-    MessageProvider messageProvider = MessageProvider.provider(builder.encoding);
+    MessageProvider messageProvider = provider(builder.encoding);
     this.requestFactory = messageProvider.getMutableRequestMessageFactory(bufferSupplier);
     this.responseFactory = messageProvider.getResponseMessageFactory();
     this.sessionMessenger = messageProvider.getSessionMessenger();
     sessionStateCondition = lock.newCondition();
   }
+
 
   public void close() {
     try {
@@ -321,7 +363,8 @@ public class Trader implements AutoCloseable {
       UUID uuid = UUID.randomUUID();
       this.session = ClientSession.builder().sessionId(Session.UUIDAsBytes(uuid)).timer(timer)
           .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
-          .sessionMessageConsumer(sessionMessageConsumer).sessionMessenger(sessionMessenger).build();
+          .sessionMessageConsumer(sessionMessageConsumer).sessionMessenger(sessionMessenger)
+          .build();
       session.subscribeForEvents(eventSubscriber);
 
     }
@@ -378,9 +421,25 @@ public class Trader implements AutoCloseable {
     return builder.toString();
   }
 
-  
-  Consumer<Throwable> getErrorListener() {
-    return errorListener;
+  private ResponseMessageFactory getResponseFactory() {
+    return responseFactory;
+  }
+
+
+  /**
+   * Locate a service provider for an application message encoding
+   * 
+   * @param name encoding name
+   * @return a service provider
+   */
+  private MessageProvider provider(String name) {
+    ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
+    for (MessageProvider provider : loader) {
+      if (provider.name().equals(name)) {
+        return provider;
+      }
+    }
+    throw new RuntimeException("No MessageProvider found");
   }
 
   void cancelEventSubscription() {
@@ -389,7 +448,7 @@ public class Trader implements AutoCloseable {
     }
   }
 
-  private ResponseMessageFactory getResponseFactory() {
-    return responseFactory;
+  Consumer<Throwable> getErrorListener() {
+    return errorListener;
   }
 }

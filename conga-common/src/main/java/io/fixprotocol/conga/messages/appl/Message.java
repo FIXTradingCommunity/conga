@@ -15,8 +15,6 @@
 
 package io.fixprotocol.conga.messages.appl;
 
-import java.nio.ByteBuffer;
-
 /**
  * @author Don Mendelson
  *
@@ -30,9 +28,4 @@ public interface Message {
    */
   String getSource();
 
-  /**
-   * Returns a buffer suitable for transmission
-   * @return a populated buffer
-   */
-  ByteBuffer toBuffer();
 }

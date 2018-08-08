@@ -15,6 +15,8 @@
 
 package io.fixprotocol.conga.messages.appl;
 
+import java.nio.ByteBuffer;
+
 /**
  * A message structure to populate
  * 
@@ -22,18 +24,26 @@ package io.fixprotocol.conga.messages.appl;
  *
  */
 public interface MutableMessage extends Message {
-  
+
   /**
    * Release the underlying buffer and any other resources
    */
   void release();
 
 
-  
+
   /**
    * The originator of this Message, e.g. session, firm or user ID
    * 
    * @param source ID of the Message originator
    */
   void setSource(String source);
+
+
+  /**
+   * Returns a buffer suitable for transmission
+   * 
+   * @return a populated buffer
+   */
+  ByteBuffer toBuffer();
 }

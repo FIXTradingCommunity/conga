@@ -159,9 +159,4 @@ public class SbeExecutionReport implements ExecutionReport, SbeMessageWrapper {
     decoder.wrap(directBuffer, offset, actingBlockLength, actingVersion);
   }
 
-  @Override
-  public ByteBuffer toBuffer() {
-    return directBuffer.byteBuffer();
-  }
-
 }

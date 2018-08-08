@@ -38,6 +38,7 @@ import io.fixprotocol.conga.messages.appl.Side;
  * @author Don Mendelson
  *
  */
+@Ignore
 public class TraderTest {
 
   private Trader trader;
@@ -83,8 +84,9 @@ public class TraderTest {
   public void setUp() throws Exception {
     listener.reset();
 
+    final String encoding = "JSON";
     trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
-        .messageListener(listener).errorListener(errorHandler).encoding("SBE").build();
+        .messageListener(listener).errorListener(errorHandler).encoding(encoding).build();
     trader.open();
   }
 

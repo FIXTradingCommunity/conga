@@ -22,12 +22,6 @@
 			<artifactId>websocket-server</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
-		<dependency>
-			<groupId>io.fixprotocol.conga</groupId>
-			<artifactId>conga-sbe</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 	<build>

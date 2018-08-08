@@ -62,6 +62,7 @@
 		<module>conga-client</module>
 		<module>conga-sbe</module>
 		<module>conga-common</module>
+		<module>conga-json</module>
 	</modules>
 
 	<dependencies>

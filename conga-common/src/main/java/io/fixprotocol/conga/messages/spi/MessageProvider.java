@@ -15,8 +15,6 @@
 
 package io.fixprotocol.conga.messages.spi;
 
-import java.util.ServiceLoader;
-
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.messages.appl.MutableRequestMessageFactory;
 import io.fixprotocol.conga.messages.appl.MutableResponseMessageFactory;
@@ -25,26 +23,13 @@ import io.fixprotocol.conga.messages.appl.ResponseMessageFactory;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 
 /**
+ * Interface for a message encoding service to be discovered by a ServiceLoader
+ * 
  * @author Don Mendelson
  *
  */
 public interface MessageProvider {
-  
-  /**
-   * Locate a service provider for an application message encoding
-   * @param name encoding name
-   * @return a service provider
-   */
-  static MessageProvider provider(String name) {
-    ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
-    for (MessageProvider provider : loader) {
-      if (provider.name().equals(name)) {
-        return provider;
-      }
-    }
-    throw new RuntimeException("No MessageProvider found");
-  }
-  
+ 
   /**
    * 
    * @return encoding name

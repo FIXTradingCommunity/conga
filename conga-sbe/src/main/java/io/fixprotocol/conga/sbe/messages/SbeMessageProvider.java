@@ -29,6 +29,8 @@ import io.fixprotocol.conga.sbe.messages.appl.SbeResponseMessageFactory;
 import io.fixprotocol.conga.sbe.messages.session.SbeSessionMessenger;
 
 /**
+ * Implementation of MessageProvider for Simple Binary Encoding
+ * 
  * @author Don Mendelson
  *
  */

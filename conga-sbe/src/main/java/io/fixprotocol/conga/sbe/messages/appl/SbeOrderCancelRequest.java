@@ -73,9 +73,5 @@ public class SbeOrderCancelRequest implements OrderCancelRequest, SbeMessageWrap
     directBuffer.wrap(buffer);
     decoder.wrap(directBuffer, offset, actingBlockLength, actingVersion);
   }
-  
-  @Override
-  public ByteBuffer toBuffer() {
-    return directBuffer.byteBuffer();
-  }
+
 }

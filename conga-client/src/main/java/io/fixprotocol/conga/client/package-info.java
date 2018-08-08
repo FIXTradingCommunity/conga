@@ -14,6 +14,10 @@
  */
 
 /**
+ * Demonstration client
+ * <p>
+ * Requires Java incubator module {@code jdk.incubator.httpclient}
+ * 
  * @author Don Mendelson
  *
  */

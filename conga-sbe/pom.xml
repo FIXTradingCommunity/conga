@@ -165,4 +165,5 @@
 			</plugins>
 		</pluginManagement>
 	</build>
+	<description>Simple Binary Encoding provider for appliction and session messages</description>
 </project>
