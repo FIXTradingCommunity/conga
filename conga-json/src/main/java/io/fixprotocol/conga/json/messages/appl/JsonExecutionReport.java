@@ -35,7 +35,7 @@ public class JsonExecutionReport implements ExecutionReport, Message {
   private int cumQty;
   private String execId;
   private ExecType execType;
-  private ArrayList<JsonFill> fills = new ArrayList<>();
+  private final ArrayList<JsonFill> fills = new ArrayList<>();
   private int leavesQty;
   private String orderId;
   private OrdStatus ordStatus;

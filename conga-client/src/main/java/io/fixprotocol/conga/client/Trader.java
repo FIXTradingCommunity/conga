@@ -112,27 +112,27 @@ public class Trader implements AutoCloseable {
     }
 
     public Builder encoding(String encoding) {
-      this.encoding = encoding;
+      this.encoding = Objects.requireNonNull(encoding);
       return this;
     }
 
     public Builder errorListener(Consumer<Throwable> errorListener) {
-      this.errorListener = errorListener;
+      this.errorListener = Objects.requireNonNull(errorListener);
       return this;
     }
 
     public Builder host(String host) {
-      this.host = host;
+      this.host = Objects.requireNonNull(host);
       return this;
     }
 
     public Builder messageListener(ApplicationMessageConsumer messageListener) {
-      this.messageListener = messageListener;
+      this.messageListener = Objects.requireNonNull(messageListener);
       return this;
     }
 
     public Builder path(String path) {
-      this.path = path;
+      this.path = Objects.requireNonNull(path);
       return this;
     }
 
@@ -147,7 +147,7 @@ public class Trader implements AutoCloseable {
     }
 
     public Builder uri(URI uri) {
-      this.uri = uri;
+      this.uri = Objects.requireNonNull(uri);
       return this;
     }
 
@@ -164,8 +164,8 @@ public class Trader implements AutoCloseable {
 
   private final BufferSupplier bufferSupplier = new BufferPool();
   private final ClientEndpoint endpoint;
-  private Consumer<Throwable> errorListener;
-  private Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
+  private final Consumer<Throwable> errorListener;
+  private final Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
 
 
     @Override
@@ -223,20 +223,20 @@ public class Trader implements AutoCloseable {
   private final ResponseMessageFactory responseFactory;
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
-  private SessionMessenger sessionMessenger;
-  private Condition sessionStateCondition;
+  private final SessionMessenger sessionMessenger;
+  private final Condition sessionStateCondition;
   private Subscription subscription;
   private final int timeoutSeconds;
   private final Timer timer = new Timer("Client-timer", true);
   
   // Consumes application messages from Session
-  private SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
+  private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
       message = getResponseFactory().wrap(buffer);
       messageListener.accept(source, message, seqNo);
     } catch (MessageException e) {
-      errorListener.accept(e);
+      getErrorListener().accept(e);
     }
 
   };
@@ -271,7 +271,7 @@ public class Trader implements AutoCloseable {
 
           @Override
           public void accept(String source, Message message, long seqNo) {
-                        
+
           }}).build()) {
       trader.open();
       final Object monitor = new Object();

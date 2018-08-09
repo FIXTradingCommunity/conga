@@ -48,8 +48,8 @@ public abstract class Session {
   @SuppressWarnings("unchecked")
   public abstract static class Builder<T extends Session, B extends Builder<T, B>> {
 
-    public byte[] credentials;
-    public long lastSeqNoReceived = 0;
+    private byte[] credentials;
+    private long lastSeqNoReceived = 0;
     private Executor executor;
     private long heartbeatInterval;
     private FlowType outboundFlowType = FlowType.Idempotent;
@@ -250,8 +250,8 @@ public abstract class Session {
   }
 
   private final AtomicBoolean connectedCriticalSection = new AtomicBoolean();
-  private byte[] credentials;
-  private SubmissionPublisher<SessionEvent> eventPublisher;
+  private final byte[] credentials;
+  private final SubmissionPublisher<SessionEvent> eventPublisher;
   private final Executor executor;
   private long heartbeatDueInterval;
   private HeartbeatDueTask heartbeatDueTask;
@@ -271,16 +271,16 @@ public abstract class Session {
   private long nextSeqNoAccepted = 1L;
   private long nextSeqNoReceived = 1L;
   private final AtomicLong nextSeqNoSent = new AtomicLong(1L);
-  private FlowType outboundFlowType;
+  private final FlowType outboundFlowType;
   private String principal;
   private final AtomicBoolean receivedCriticalSection = new AtomicBoolean();
-  private SequenceRange retransmitRange = new SequenceRange();
-  private List<ByteBuffer> sendCache;
+  private final SequenceRange retransmitRange = new SequenceRange();
+  private final List<ByteBuffer> sendCache;
   private final AtomicBoolean sendCriticalSection = new AtomicBoolean();
   private byte[] sessionId;
   private final SessionMessageConsumer sessionMessageConsumer;
-  private SessionMessenger sessionMessenger;
-  private AtomicReference<SessionState> sessionState =
+  private final SessionMessenger sessionMessenger;
+  private final AtomicReference<SessionState> sessionState =
       new AtomicReference<>(SessionState.NOT_NEGOTIATED);
   private final Timer timer;
 

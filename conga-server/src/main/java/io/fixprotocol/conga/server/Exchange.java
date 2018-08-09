@@ -68,12 +68,12 @@ public class Exchange implements AutoCloseable {
     }
 
     public Builder contextPath(String contextPath) {
-      this.contextPath = contextPath;
+      this.contextPath = Objects.requireNonNull(contextPath);
       return this;
     }
 
     public Builder encoding(String encoding) {
-      this.encoding = encoding;
+      this.encoding = Objects.requireNonNull(encoding);
       return this;
     }
 
@@ -83,7 +83,7 @@ public class Exchange implements AutoCloseable {
     }
 
     public Builder host(String host) {
-      this.host = host;
+      this.host = Objects.requireNonNull(host);
       return this;
     }
 

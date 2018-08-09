@@ -68,7 +68,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   // wraps dedicated buffers for SBE session messages
   private class SbeMutableMessage implements MutableMessage {
     private String source;
-    private ByteBuffer buffer;
+    private final ByteBuffer buffer;
     
     SbeMutableMessage(ByteBuffer buffer) {
       this.buffer = buffer;

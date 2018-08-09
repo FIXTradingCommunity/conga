@@ -48,7 +48,7 @@ public class JsonMutableExecutionReport extends JsonMutableMessage implements Mu
   private Side side;
   private String symbol;
   private Instant transactTime;
-  private ArrayList<JsonMutableFill> fills = new ArrayList<>();
+  private final ArrayList<JsonMutableFill> fills = new ArrayList<>();
   
   /**
    * @param bufferSupplier

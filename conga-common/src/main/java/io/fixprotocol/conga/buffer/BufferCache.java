@@ -46,7 +46,7 @@ public class BufferCache implements List<ByteBuffer> {
     /**
      * @param index
      */
-    public BufferIterator(int index) {
+    BufferIterator(int index) {
       cursor = index;
     }
 

@@ -32,12 +32,12 @@ import io.fixprotocol.conga.messages.appl.MutableMessage;
  */
 public class JsonMutableMessage implements MutableMessage {
 
-  final static Gson gson = new Gson();
-  final transient ByteBuffer buffer;
-  protected final transient BufferSupply bufferSupply;
+  private final static Gson gson = new Gson();
+  private final transient ByteBuffer buffer;
+  private final transient BufferSupply bufferSupply;
   private transient String source;
 
-  public JsonMutableMessage() {
+  protected JsonMutableMessage() {
     this.bufferSupply = null;
     this.buffer = null;
   }
@@ -45,7 +45,7 @@ public class JsonMutableMessage implements MutableMessage {
   /**
    * Constructor acquires a buffer
    */
-  public JsonMutableMessage(BufferSupplier bufferSupplier) {
+  protected JsonMutableMessage(BufferSupplier bufferSupplier) {
     this.bufferSupply = bufferSupplier.get();
     this.buffer = this.bufferSupply.acquire();
   }
