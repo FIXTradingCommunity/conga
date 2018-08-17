@@ -24,6 +24,7 @@ import com.google.gson.Gson;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
+import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
 import io.fixprotocol.conga.messages.appl.MutableMessage;
 
 /**
@@ -32,7 +33,7 @@ import io.fixprotocol.conga.messages.appl.MutableMessage;
  */
 public class JsonMutableMessage implements MutableMessage {
 
-  private final static Gson gson = new Gson();
+  private final static Gson gson = JsonTranslatorFactory.createTranslator();
   private final transient ByteBuffer buffer;
   private final transient BufferSupply bufferSupply;
   private transient String source;

@@ -21,6 +21,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
 import io.fixprotocol.conga.json.util.CharBufferReader;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MessageException;
@@ -32,7 +33,7 @@ import io.fixprotocol.conga.messages.appl.RequestMessageFactory;
  */
 public class JsonRequestMessageFactory implements RequestMessageFactory {
 
-  private final static Gson gson = new Gson();
+  private final static Gson gson = JsonTranslatorFactory.createTranslator();
   private final JsonParser parser = new JsonParser();
   private ByteBuffer buffer;
 

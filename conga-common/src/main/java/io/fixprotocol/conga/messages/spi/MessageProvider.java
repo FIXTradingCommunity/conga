@@ -31,10 +31,16 @@ import io.fixprotocol.conga.messages.session.SessionMessenger;
 public interface MessageProvider {
  
   /**
-   * 
+   * Name of the encoding
    * @return encoding name
    */
   String name();
+  
+  /**
+   * Code for the encoding as defined by FIX Simple Open Framing Header
+   * @return
+   */
+  short encodingType();
   
   RequestMessageFactory getRequestMessageFactory();
   

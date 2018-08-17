@@ -25,6 +25,8 @@ public interface RequestMessageFactory {
   
   /**
    * Attach a decoder of appropriate type to a message buffer
+   * <p>
+   * Begins reading at the current position in the ByteBuffer.
    * @param buffer a buffer with an encoded request message
    * @return a message decoder of appropriate type
    * @throws MessageException if unable to parse the message or determine its type

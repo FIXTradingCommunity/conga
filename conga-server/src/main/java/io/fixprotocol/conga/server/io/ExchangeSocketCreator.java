@@ -22,6 +22,7 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.server.io.callback.BinaryExchangeSocket;
 import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**

@@ -19,6 +19,8 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.function.Consumer;
 
 import org.junit.After;
@@ -31,6 +33,7 @@ import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.appl.OrdType;
 import io.fixprotocol.conga.messages.appl.Side;
+import io.fixprotocol.conga.session.SessionEvent;
 
 /**
  * Requires running Exchange
@@ -41,7 +44,69 @@ import io.fixprotocol.conga.messages.appl.Side;
 @Ignore
 public class TraderTest {
 
-  private Trader trader;
+  private class TestErrorHandler implements Consumer<Throwable> {
+
+    @Override
+    public void accept(Throwable error) {
+      error.printStackTrace();
+      fail();
+    }
+  }
+
+  private class TestEventSubscriber implements Subscriber<SessionEvent> {
+
+    private Subscription subscription;
+
+    @Override
+    public void onComplete() {
+      System.out.println("Session events complete");
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+      errorHandler.accept(throwable);
+    }
+
+    @Override
+    public void onNext(SessionEvent item) {
+      switch (item.getState()) {
+        case ESTABLISHED:
+          System.out.println("Session established");
+          synchronized(eventLock) {
+            eventLock.notify();
+          }
+          break;
+        case NEGOTIATED:
+          System.out.println("Session negotiated");
+          break;
+        case FINALIZED:
+          System.out.println("Session finalized");
+          break;
+        case NOT_ESTABLISHED:
+          System.out.println("Session transport unbound");
+          break;
+        case NOT_NEGOTIATED:
+          System.out.println("Session initialized");
+          break;
+        case FINALIZE_REQUESTED:
+          System.out.println("Session finalizing");
+          break;
+      }
+      subscription.request(1);
+    }
+
+    @Override
+    public void onSubscribe(Subscription subscription) {
+      this.subscription = subscription;
+    }
+
+    void cancelEventSubscription() {
+      if (subscription != null) {
+        subscription.cancel();
+      }
+    }
+
+  };
 
   private class TestMessageListener implements ApplicationMessageConsumer {
 
@@ -64,45 +129,26 @@ public class TraderTest {
 
   };
 
-  private class TestErrorHandler implements Consumer<Throwable> {
 
-    @Override
-    public void accept(Throwable error) {
-      error.printStackTrace();
-      fail();
-    }
-  };
+  private final TestErrorHandler errorHandler = new TestErrorHandler();
+  private final TestEventSubscriber eventSubscriber = new TestEventSubscriber();
+  private final TestMessageListener listener = new TestMessageListener();
+  private Trader trader;
+  private final Object eventLock = new Object();
 
-
-  private TestMessageListener listener = new TestMessageListener();
-  private TestErrorHandler errorHandler = new TestErrorHandler();
-
-  /**
-   * @throws java.lang.Exception
-   */
-  @Before
-  public void setUp() throws Exception {
-    listener.reset();
-
-    final String encoding = "JSON";
-    trader = Trader.builder().host("localhost").port(8025).path("/trade").timeoutSeconds(2)
-        .messageListener(listener).errorListener(errorHandler).encoding(encoding).build();
+  @Test
+  public void quiescent() throws Exception {
+    Thread.sleep(10000);
+    // System.out.println(trader.toString());
+    trader.suspend();
+    Thread.sleep(2000);
     trader.open();
-  }
-
-  /**
-   * @throws java.lang.Exception
-   */
-  @After
-  public void tearDown() throws Exception {
-    if (trader != null) {
-      trader.close();
-    }
+    Thread.sleep(2000);
   }
 
   @Test
   public void selfTrade() throws Exception {
-    //System.out.println(trader.toString());
+    // System.out.println(trader.toString());
     MutableNewOrderSingle order1 = trader.createOrder();
     order1.setClOrdId("C1");
     order1.setOrderQty(3);
@@ -129,18 +175,35 @@ public class TraderTest {
 
     Thread.sleep(1000);
 
-    //System.out.println(trader.toString());
+    // System.out.println(trader.toString());
     assertEquals(3, listener.getCount());
   }
 
-  @Test
-  public void quiescent() throws Exception {
-    Thread.sleep(10000);
-    //System.out.println(trader.toString());
-    trader.suspend();
-    Thread.sleep(2000);
+  /**
+   * @throws java.lang.Exception
+   */
+  @Before
+  public void setUp() throws Exception {
+    listener.reset();
+
+    final String encoding = "JSON";
+    trader = Trader.builder().remoteHost("localhost").remotePort(8025).apiPath("/trade").timeoutSeconds(2)
+        .messageListener(listener).errorListener(errorHandler).encoding(encoding)
+        .sessionEventSubscriber(eventSubscriber).build();
     trader.open();
-    Thread.sleep(2000);
+    synchronized(eventLock) {
+      eventLock.wait(2000L);
+    }
+  }
+
+  /**
+   * @throws java.lang.Exception
+   */
+  @After
+  public void tearDown() throws Exception {
+    if (trader != null) {
+      trader.close();
+    }
   }
 
 }

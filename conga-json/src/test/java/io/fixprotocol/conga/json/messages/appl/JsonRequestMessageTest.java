@@ -17,15 +17,25 @@ package io.fixprotocol.conga.json.messages.appl;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.function.Consumer;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
+import io.fixprotocol.conga.io.MessageLogWriter;
 import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.appl.MutableOrderCancelRequest;
@@ -42,6 +52,21 @@ public class JsonRequestMessageTest {
   private JsonRequestMessageFactory factory;
   private BufferSupplier bufferSupplier;
 
+  private MessageLogWriter writer;
+  private static final Path path = FileSystems.getDefault().getPath("target/test", "json.log");
+
+  @BeforeClass
+  public static void setUpOnce() {
+    new File("target/test").mkdirs();
+    
+    try {
+      FileChannel channel = FileChannel.open(path, StandardOpenOption.APPEND);
+      channel.truncate(0);
+      channel.close();
+    } catch (IOException e) {
+
+    }
+  }
   /**
    * @throws java.lang.Exception
    */
@@ -50,10 +75,20 @@ public class JsonRequestMessageTest {
     bufferSupplier = new SingleBufferSupplier(ByteBuffer.allocate(1024));
     mutableFactory = new JsonMutableRequestMessageFactory(bufferSupplier);
     factory = new JsonRequestMessageFactory();
+    Consumer<Throwable> errorListener = (t) -> t.printStackTrace();
+    writer = new MessageLogWriter(path, errorListener );
+    writer.open();
+  }
+  
+  @After
+  public void tearDown() throws Exception {
+    if (writer != null) {
+      writer.close();
+    }
   }
 
   @Test
-  public void newOrderSingle() throws MessageException {
+  public void newOrderSingle() throws MessageException, IOException {
     MutableNewOrderSingle mutableOrder = mutableFactory.getNewOrderSingle();
     String clOrdId = "C0001";
     mutableOrder.setClOrdId(clOrdId);
@@ -72,6 +107,7 @@ public class JsonRequestMessageTest {
     Instant transactTime = Instant.now();
     mutableOrder.setTransactTime(transactTime);
     ByteBuffer buffer = mutableOrder.toBuffer();
+    writer.write(buffer.duplicate(), (short) 0xF500);
     
     factory.wrap(buffer);
     JsonNewOrderSingle order = factory.getNewOrderSingle();
@@ -85,7 +121,7 @@ public class JsonRequestMessageTest {
   }
 
   @Test
-  public void orderCancelRequest() throws MessageException {
+  public void orderCancelRequest() throws MessageException, IOException {
     MutableOrderCancelRequest mutableCancel = mutableFactory.getOrderCancelRequest();
     String clOrdId = "C0001";
     mutableCancel.setClOrdId(clOrdId);
@@ -96,6 +132,7 @@ public class JsonRequestMessageTest {
     Instant transactTime = Instant.now();
     mutableCancel.setTransactTime(transactTime);
     ByteBuffer buffer = mutableCancel.toBuffer();
+    writer.write(buffer.duplicate(), (short) 0xF500);
     
     factory.wrap(buffer);
     JsonOrderCancelRequest cancel = factory.getOrderCancelRequest();

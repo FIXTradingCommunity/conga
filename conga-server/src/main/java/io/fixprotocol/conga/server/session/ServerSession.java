@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
-import io.fixprotocol.conga.server.io.BinaryExchangeSocket;
+import io.fixprotocol.conga.server.io.callback.BinaryExchangeSocket;
 import io.fixprotocol.conga.session.Session;
 
 /**

@@ -391,11 +391,15 @@ public abstract class Session {
   }
 
 
-  public void finalizeFlow() throws IOException, InterruptedException {
-    if (setSessionState(SessionState.FINALIZE_REQUESTED)) {
+  public boolean requestFinalization() throws IOException, InterruptedException {
+    final boolean requested = setSessionState(SessionState.FINALIZE_REQUESTED);
+    if (requested) {
       MutableMessage mutableMessage = sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1);
       sendMessage(mutableMessage.toBuffer());
       mutableMessage.release();
+      return true;
+    } else {
+      return false;
     }
   }
 

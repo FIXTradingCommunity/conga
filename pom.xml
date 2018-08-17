@@ -52,6 +52,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<commons-cli.version>1.4</commons-cli.version>
 		<java.version>10</java.version>
 		<jetty.version>9.4.11.v20180605</jetty.version>
 		<junit.version>4.12</junit.version>

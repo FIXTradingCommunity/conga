@@ -13,7 +13,7 @@
  *
  */
 
-package io.fixprotocol.conga.server.io;
+package io.fixprotocol.conga.server.io.callback;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

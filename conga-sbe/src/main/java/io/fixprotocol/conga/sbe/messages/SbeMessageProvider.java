@@ -68,4 +68,9 @@ public class SbeMessageProvider implements MessageProvider {
     return "SBE";
   }
 
+  @Override
+  public short encodingType() {
+    return (short) 0xEB50;
+  }
+
 }

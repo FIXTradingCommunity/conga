@@ -82,15 +82,24 @@ public class Trader implements AutoCloseable {
    * </pre>
    *
    */
-  public static class Builder {
+  public static class Builder<T extends Trader, B extends Builder<T, B>> {
+
 
     private static final String WEBSOCKET_SCHEME = "wss";
+    public static final String DEFAULT_OUTPUT_PATH = "log";
+    public static final String DEFAULT_ENCODING = "SBE";
+    public static final long DEFAULT_HEARTBEAT_INTERVAL = 2000L;
+    public static final String DEFAULT_HOST = "localhost";
+    public static final String DEFAULT_PATH = "/trade";
+    public static final int DEFAULT_PORT = 8025;
+    public static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     private static URI createUri(String host, int port, String path) throws URISyntaxException {
       return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
     }
 
-    private String encoding;
+    public Subscriber<? super SessionEvent> sessionEventSubscriber;
+    private String encoding = DEFAULT_ENCODING;
     private Consumer<Throwable> errorListener = Throwable::printStackTrace;
     private String host = DEFAULT_HOST;
     private ApplicationMessageConsumer messageListener = null;
@@ -98,79 +107,110 @@ public class Trader implements AutoCloseable {
     private int port = DEFAULT_PORT;
     private int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
     private URI uri = null;
+    //private String outputPath = DEFAULT_OUTPUT_PATH;
+    private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
 
     protected Builder() {
 
     }
 
-    public Trader build() throws URISyntaxException {
+    @SuppressWarnings("unchecked")
+    public B apiPath(String path) {
+      this.path = Objects.requireNonNull(path);
+      return (B) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T build() throws URISyntaxException {
       if (null == this.uri) {
         this.uri = createUri(host, port, path);
       }
 
-      return new Trader(this);
+      return (T) new Trader(this);
     }
 
-    public Builder encoding(String encoding) {
+    @SuppressWarnings("unchecked")
+    public B encoding(String encoding) {
       this.encoding = Objects.requireNonNull(encoding);
-      return this;
+      return (B) this;
     }
 
-    public Builder errorListener(Consumer<Throwable> errorListener) {
+    @SuppressWarnings("unchecked")
+    public B errorListener(Consumer<Throwable> errorListener) {
       this.errorListener = Objects.requireNonNull(errorListener);
-      return this;
+      return (B) this;
+    }
+    
+    /**
+     * Set heartbeat interval 
+     * @param heartbeatInterval keepalive interval in millis
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    public B heartbeatInterval(long heartbeatInterval) {
+      this.heartbeatInterval = heartbeatInterval;
+      return (B) this;
     }
 
-    public Builder host(String host) {
-      this.host = Objects.requireNonNull(host);
-      return this;
-    }
-
-    public Builder messageListener(ApplicationMessageConsumer messageListener) {
+    @SuppressWarnings("unchecked")
+    public B messageListener(ApplicationMessageConsumer messageListener) {
       this.messageListener = Objects.requireNonNull(messageListener);
-      return this;
+      return (B) this;
+    }
+    
+//    @SuppressWarnings("unchecked")
+//    public B outputPath(String path) {
+//      this.outputPath = Objects.requireNonNull(path);
+//      return (B) this;
+//    }
+
+    @SuppressWarnings("unchecked")
+    public B remoteHost(String host) {
+      this.host = Objects.requireNonNull(host);
+      return (B) this;
     }
 
-    public Builder path(String path) {
-      this.path = Objects.requireNonNull(path);
-      return this;
-    }
-
-    public Builder port(int port) {
+    @SuppressWarnings("unchecked")
+    public B remotePort(int port) {
       this.port = port;
-      return this;
+      return (B) this;
     }
 
-    public Builder timeoutSeconds(int timeoutSeconds) {
+    @SuppressWarnings("unchecked")
+    public B sessionEventSubscriber(Subscriber<? super SessionEvent> sessionEventSubscriber) {
+      this.encoding = Objects.requireNonNull(encoding);
+      return (B) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public B timeoutSeconds(int timeoutSeconds) {
       this.timeoutSeconds = timeoutSeconds;
-      return this;
+      return (B) this;
     }
 
-    public Builder uri(URI uri) {
+    @SuppressWarnings("unchecked")
+    public B uri(URI uri) {
       this.uri = Objects.requireNonNull(uri);
-      return this;
+      return (B) this;
     }
 
   }
 
-  public static final String DEFAULT_HOST = "localhost";
-  public static final String DEFAULT_PATH = "/trade";
-  public static final int DEFAULT_PORT = 443;
-  public static final int DEFAULT_TIMEOUT_SECONDS = 30;
-
-  public static Builder builder() {
-    return new Builder();
+  public static Injector.Builder builder() {
+    return new Injector.Builder();
   }
 
-  private final BufferSupplier bufferSupplier = new BufferPool();
+
+  //private short encodingType;
   private final ClientEndpoint endpoint;
   private final Consumer<Throwable> errorListener;
-  private final Subscriber<? super SessionEvent> eventSubscriber = new Subscriber<>() {
+
+  private final Subscriber<? super SessionEvent> internalEventSubscriber = new Subscriber<>() {
 
 
     @Override
     public void onComplete() {
-      System.out.println("Session events complete");
+
     }
 
     @Override
@@ -181,7 +221,7 @@ public class Trader implements AutoCloseable {
     @Override
     public void onNext(SessionEvent item) {
       try {
-        lock.lock();
+        sessionStateLock.lock();
         sessionStateCondition.signalAll();
         switch (item.getState()) {
           case ESTABLISHED:
@@ -199,10 +239,13 @@ public class Trader implements AutoCloseable {
           case NOT_NEGOTIATED:
             System.out.println("Session initialized");
             break;
+          case FINALIZE_REQUESTED:
+            System.out.println("Session finalizing");
+            break;
         }
         request(1);
       } finally {
-        lock.unlock();
+        sessionStateLock.unlock();
       }
     }
 
@@ -217,32 +260,22 @@ public class Trader implements AutoCloseable {
     }
   };
 
-  private final ReentrantLock lock = new ReentrantLock();
-  private ApplicationMessageConsumer messageListener = null;
+  private ApplicationMessageConsumer applicationMessageConsumer = null;
+  private final BufferSupplier requestBufferSupplier = new BufferPool();
   private final MutableRequestMessageFactory requestFactory;
   private final ResponseMessageFactory responseFactory;
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
+  private final Subscriber<? super SessionEvent> sessionEventSubscriber;
   private final SessionMessenger sessionMessenger;
   private final Condition sessionStateCondition;
+  private final ReentrantLock sessionStateLock = new ReentrantLock();
   private Subscription subscription;
   private final int timeoutSeconds;
   private final Timer timer = new Timer("Client-timer", true);
-  
-  // Consumes application messages from Session
-  private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
-    Message message;
-    try {
-      message = getResponseFactory().wrap(buffer);
-      messageListener.accept(source, message, seqNo);
-    } catch (MessageException e) {
-      getErrorListener().accept(e);
-    }
 
-  };
-  
   // Consumes messages from ring buffer
-  private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = (source, buffer) -> {
+  private final BiConsumer<String, ByteBuffer> inboundMessageConsumer = (source, buffer) -> {
     try {
       session.messageReceived(buffer);
     } catch (Exception e) {
@@ -252,74 +285,42 @@ public class Trader implements AutoCloseable {
       session.disconnected();
     }
   };
-
-  /**
-   * Invoke application to test connectivity
-   * @param args
-   * @throws Exception
-   */
-  public static void main(String[] args) throws Exception {
-    // Use communication defaults and SBE encoding by default
-    String encoding = "SBE";
-    
-    if (args.length > 0) {
-      encoding = args[0];
+  
+  // Consumes application messages from Session
+  private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
+    Message message;
+    try {
+      message = getResponseFactory().wrap(buffer);
+      applicationMessageConsumer.accept(source, message, seqNo);
+    } catch (MessageException e) {
+      getErrorListener().accept(e);
     }
-    
-    try (Trader trader = Trader.builder().host("localhost").port(8025).path("/trade")
-        .encoding(encoding).messageListener(new ApplicationMessageConsumer() {
 
-          @Override
-          public void accept(String source, Message message, long seqNo) {
-
-          }}).build()) {
-      trader.open();
-      final Object monitor = new Object();
-
-      new Thread(() -> {
-
-        boolean running = true;
-        while (running) {
-          synchronized (monitor) {
-            try {
-              monitor.wait();
-            } catch (InterruptedException e) {
-              running = false;
-            }
-          }
-        }
-        trader.close();
-      });
-    }
-  }
-  private Trader(Builder builder) {
-    this.messageListener =
+  };
+  private long heartbeatInterval;
+  
+  protected Trader(@SuppressWarnings("rawtypes") Builder<? extends Trader, ? extends Trader.Builder>  builder) {
+    this.applicationMessageConsumer =
         Objects.requireNonNull(builder.messageListener, "Message listener not set");
     this.errorListener = builder.errorListener;
     this.timeoutSeconds = builder.timeoutSeconds;
-    this.ringBuffer = new RingBufferSupplier(incomingMessageConsumer);
+    this.ringBuffer = new RingBufferSupplier(inboundMessageConsumer);
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
     MessageProvider messageProvider = provider(builder.encoding);
-    this.requestFactory = messageProvider.getMutableRequestMessageFactory(bufferSupplier);
+    //encodingType = messageProvider.encodingType();
+    this.requestFactory = messageProvider.getMutableRequestMessageFactory(requestBufferSupplier);
     this.responseFactory = messageProvider.getResponseMessageFactory();
     this.sessionMessenger = messageProvider.getSessionMessenger();
-    sessionStateCondition = lock.newCondition();
+    sessionStateCondition = sessionStateLock.newCondition();
+    this.sessionEventSubscriber = builder.sessionEventSubscriber;
+    //Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
+    this.heartbeatInterval = builder.heartbeatInterval;
   }
 
 
   public void close() {
     try {
-      if (session != null) {
-        try {
-          lock.lockInterruptibly();
-          session.finalizeFlow();
-          while (session.getSessionState() != SessionState.FINALIZED) {
-            sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
-          }
-        } finally {
-          lock.unlock();
-        }
-      }
+      endpoint.close();
       ringBuffer.stop();
     } catch (Exception e) {
       errorListener.accept(e);
@@ -350,6 +351,7 @@ public class Trader implements AutoCloseable {
     return requestFactory.getOrderCancelRequest();
   }
 
+
   /**
    * Opens a session with a server
    * <p>
@@ -362,20 +364,26 @@ public class Trader implements AutoCloseable {
     if (session == null) {
       UUID uuid = UUID.randomUUID();
       this.session = ClientSession.builder().sessionId(Session.UUIDAsBytes(uuid)).timer(timer)
-          .heartbeatInterval(TimeUnit.SECONDS.toMillis(timeoutSeconds))
+          .heartbeatInterval(heartbeatInterval)
           .sessionMessageConsumer(sessionMessageConsumer).sessionMessenger(sessionMessenger)
           .build();
-      session.subscribeForEvents(eventSubscriber);
-
+      session.subscribeForEvents(internalEventSubscriber);
+      if (sessionEventSubscriber != null) {
+        session.subscribeForEvents(sessionEventSubscriber);
+      }
     }
+
     endpoint.open();
     session.connected(endpoint, endpoint.getSource());
   }
 
   /**
-   * Send an order or cancel request
+   * Send an application message
+   * <p>
+   * Side effect: releases the underlying buffer of the MutableMessage if successful. If an
+   * exception is thrown, the buffer is not release, allowing a retry.
    * 
-   * @param message
+   * @param message to send
    * @return sequence number of the sent message
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws InterruptedException if the current thread is interrupted
@@ -383,29 +391,37 @@ public class Trader implements AutoCloseable {
    */
   public long send(MutableMessage message) throws IOException, InterruptedException {
     Objects.requireNonNull(message);
-    try {
-      lock.lockInterruptibly();
-      while (session.getSessionState() != SessionState.ESTABLISHED) {
-        sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
-      }
-      return session.sendApplicationMessage(message.toBuffer());
-    } finally {
-      lock.unlock();
-      message.release();
-    }
+    long seqNo = sendApplicationMessage(message.toBuffer());
+    message.release();
+    return seqNo;
+  }
+
+  /**
+   * Sends a buffer holding an application message
+   * 
+   * @param buffer message buffer
+   * @return sequence number of the sent message
+   * @throws TimeoutException if the operation fails to complete in a timeout period
+   * @throws InterruptedException if the current thread is interrupted
+   * @throws IOException if an I/O error occurs
+   * @throws IllegalStateException if this Session is not established
+   */
+  public long sendApplicationMessage(ByteBuffer buffer) throws IOException, InterruptedException {
+    Objects.requireNonNull(buffer);
+    return session.sendApplicationMessage(buffer);
   }
 
   public void suspend() {
     try {
       if (session != null) {
         try {
-          lock.lockInterruptibly();
+          sessionStateLock.lockInterruptibly();
           endpoint.close();
           while (session.getSessionState() != SessionState.NOT_ESTABLISHED) {
             sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
           }
         } finally {
-          lock.unlock();
+          sessionStateLock.unlock();
         }
       }
     } catch (Exception e) {
@@ -425,7 +441,6 @@ public class Trader implements AutoCloseable {
     return responseFactory;
   }
 
-
   /**
    * Locate a service provider for an application message encoding
    * 
@@ -440,6 +455,11 @@ public class Trader implements AutoCloseable {
       }
     }
     throw new RuntimeException("No MessageProvider found");
+  }
+
+
+  protected BufferSupplier getRequestBufferSupplier() {
+    return requestBufferSupplier;
   }
 
   void cancelEventSubscription() {

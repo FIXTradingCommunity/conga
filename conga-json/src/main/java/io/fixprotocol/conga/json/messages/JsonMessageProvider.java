@@ -67,4 +67,9 @@ public class JsonMessageProvider implements MessageProvider {
     return "JSON";
   }
 
+  @Override
+  public short encodingType() {
+    return (short) 0xF500;
+  }
+
 }

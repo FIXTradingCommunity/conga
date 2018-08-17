@@ -16,7 +16,10 @@
 package io.fixprotocol.conga.server;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -27,9 +30,17 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+
 import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
+import io.fixprotocol.conga.io.MessageLogWriter;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.MutableMessage;
@@ -49,15 +60,23 @@ import io.fixprotocol.conga.session.SessionMessageConsumer;
  * @author Don Mendelson
  *
  */
-public class Exchange implements AutoCloseable {
+public class Exchange implements Runnable, AutoCloseable {
 
   public static class Builder {
 
+    public static final String DEFAULT_ENCODING = "SBE";
+    public static final long DEFAULT_HEARTBEAT_INTERVAL = 2000L;
+    public static final String DEFAULT_HOST = "localhost";
+    public static final int DEFAULT_PORT = 8025;
+    private static final String DEFAULT_OUTPUT_PATH = "log";
+    public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
+    
     private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
     private String encoding;
     private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
     private String host = DEFAULT_HOST;
     private int port = DEFAULT_PORT;
+    public String outputPath = DEFAULT_OUTPUT_PATH;
 
     protected Builder() {
 
@@ -77,6 +96,11 @@ public class Exchange implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Set heartbeat interval for new sessions
+     * @param heartbeatInterval keepalive interval in millis
+     * @return
+     */
     public Builder heartbeatInterval(long heartbeatInterval) {
       this.heartbeatInterval = heartbeatInterval;
       return this;
@@ -94,11 +118,6 @@ public class Exchange implements AutoCloseable {
 
   }
 
-  public static final long DEFAULT_HEARTBEAT_INTERVAL = 2000L;
-  public static final String DEFAULT_HOST = "localhost";
-  public static final int DEFAULT_PORT = 8025;
-  public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
-
   public static Builder builder() {
     return new Builder();
   }
@@ -108,35 +127,77 @@ public class Exchange implements AutoCloseable {
    * @throws Exception if WebSocket server fails to start
    */
   public static void main(String[] args) throws Exception {
-    // Use communication defaults and SBE encoding by default
-    String encoding = "SBE";
+
+    final Builder builder = Exchange.builder();
+    buildFromArgs(builder, args);
     
-    if (args.length > 0) {
-      encoding = args[0];
-    }
-    
-    try (Exchange exchange = Exchange.builder().encoding(encoding).build()) {
+    try (Exchange exchange = builder.build()) {
       exchange.open();
-      final Object monitor = new Object();
+      exchange.run();
+      exchange.close();
+    }
+  }
+  
+  private static void buildFromArgs(Builder builder, String[] args) {
+    Options options = new Options();
+    options.addOption("i", "input", true, "path of input file");
+    options.addOption("o", "output", true, "path of output file");
+    options.addOption("e", "encoding", true, "message encoding");
+    options.addOption("c", "contextpath", true, "context path");
+    options.addOption("h", "host", true, "local host");
+    options.addOption(Option.builder("p").longOpt("port").hasArg(true).desc("listen port")
+        .type(Integer.class).build());
+    options.addOption(Option.builder("t").longOpt("timeout").hasArg(true).desc("timeout seconds")
+        .type(Integer.class).build());
+    options.addOption(Option.builder("k").longOpt("keepalive").hasArg(true).desc("keepalive interval millis")
+        .type(Long.class).build());
+    options.addOption("?", "help", false, "disply usage");
 
-      new Thread(() -> {
+    DefaultParser parser = new DefaultParser();
+    CommandLine cmd;
+    try {
+      cmd = parser.parse(options, args);
 
-        boolean running = true;
-        while (running) {
-          synchronized (monitor) {
-            try {
-              monitor.wait();
-            } catch (InterruptedException e) {
-              running = false;
-            }
-          }
-        }
-        exchange.close();
-      });
+      if (cmd.hasOption("?")) {
+        usage(options);
+        System.exit(0);
+      }
+      // String output = cmd.getOptionValue("o");
+      // builder.outputPath(output);
+      if (cmd.hasOption("e")) {
+        String encoding = cmd.getOptionValue("e");
+        builder.encoding(encoding);
+      }
+      if (cmd.hasOption("a")) {
+        String apiPath = cmd.getOptionValue("a");
+        builder.contextPath(apiPath);
+      }
+      if (cmd.hasOption("h")) {
+        String host = cmd.getOptionValue("h");
+        builder.host(host);
+      }
+      if (cmd.hasOption("p")) {
+        Integer port = (Integer) cmd.getParsedOptionValue("p");
+        builder.port(port);
+      }
+      if (cmd.hasOption("k")) {
+        Long keepalive = (Long) cmd.getParsedOptionValue("l");
+        builder.heartbeatInterval(keepalive);
+      }
+    } catch (ParseException e) {
+      System.err.println(e.getMessage());
+      usage(options);
+      System.exit(1);
     }
   }
 
+  private static void usage(Options options) {
+    HelpFormatter formatter = new HelpFormatter();
+    formatter.printHelp("Injector", options);
+  }
+
   private final String contextPath;
+  private short encodingType;
   private Consumer<Throwable> errorListener = (t) -> t.printStackTrace(System.err);
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final String host;
@@ -154,27 +215,29 @@ public class Exchange implements AutoCloseable {
       }
     }
   };
-  private final RingBufferSupplier incomingRingBuffer;
+  
+  private MessageLogWriter inboundLogWriter;
+  private final RingBufferSupplier inboundRingBuffer;
   private final MatchEngine matchEngine;
-  private final BufferSupplier outgoingBufferSupplier = new BufferPool();
+  private final BufferSupplier outboundBufferSupplier = new BufferPool();
+  private MessageLogWriter outboundLogWriter;
   private final int port;
   private final RequestMessageFactory requestMessageFactory;
   private ExchangeSocketServer server = null;
-
+  private final ServerSessions sessions;
+  private final Timer timer = new Timer("Server-timer", true);
+  
   // Consumes application messages from Session
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
+      inboundLogWriter.write(buffer.duplicate(), encodingType);
       message = getRequestMessageFactory().wrap(buffer);
       match(source, message);
     } catch (MessageException e) {
       errorListener.accept(e);
     }
   };
-
-  private final ServerSessions sessions;
-
-  private final Timer timer = new Timer("Server-timer", true);
 
   /**
    * Construct new exchange server.
@@ -189,14 +252,20 @@ public class Exchange implements AutoCloseable {
     this.host = builder.host;
     this.port = builder.port;
     this.contextPath = builder.contextPath;
-    this.incomingRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
+    this.inboundRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
     MessageProvider messageProvider = provider(builder.encoding);
+    encodingType = messageProvider.encodingType();
     this.requestMessageFactory = messageProvider.getRequestMessageFactory();
     MutableResponseMessageFactory responseMessageFactory =
-        messageProvider.getMutableResponseMessageFactory(outgoingBufferSupplier);
+        messageProvider.getMutableResponseMessageFactory(outboundBufferSupplier);
     this.matchEngine = new MatchEngine(responseMessageFactory);
     this.sessions = new ServerSessions(new ServerSessionFactory(messageProvider,
         sessionMessageConsumer, timer, executor, builder.heartbeatInterval));
+    Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
+    this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), 
+        this.errorListener);
+    this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), 
+        this.errorListener);
   }
   
   /**
@@ -218,8 +287,16 @@ public class Exchange implements AutoCloseable {
   @Override
   public void close() {
     executor.shutdown();
-    server.stop();
-    incomingRingBuffer.stop();
+    if (server != null) {
+      server.stop();
+    }
+    inboundRingBuffer.stop();
+    try {
+      inboundLogWriter.close();
+      outboundLogWriter.close();
+    } catch (IOException e) {
+      errorListener.accept(e);
+    }
   }
 
   public String getHost() {
@@ -239,10 +316,11 @@ public class Exchange implements AutoCloseable {
     }
 
     for (MutableMessage response : responses) {
-      final ByteBuffer outgoingBuffer = response.toBuffer();
+      final ByteBuffer outboundBuffer = response.toBuffer();
       final ServerSession session = sessions.getSession(response.getSource());
       try {
-        session.sendApplicationMessage(outgoingBuffer);
+        session.sendApplicationMessage(outboundBuffer);
+        outboundLogWriter.write(outboundBuffer, encodingType);
       } catch (IOException | InterruptedException | IllegalStateException e) {
         session.disconnected();
       }
@@ -251,10 +329,12 @@ public class Exchange implements AutoCloseable {
   }
 
   public void open() throws Exception {
-    incomingRingBuffer.start();
+    inboundRingBuffer.start();
+    inboundLogWriter.open();
+    outboundLogWriter.open();
     String keyStorePath = "selfsigned.pkcs";
     String keyStorePassword = "storepassword";
-    server = ExchangeSocketServer.builder().ringBufferSupplier(incomingRingBuffer).host(host)
+    server = ExchangeSocketServer.builder().ringBufferSupplier(inboundRingBuffer).host(host)
         .port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).sessions(sessions)
         .build();
     server.run();
@@ -266,6 +346,21 @@ public class Exchange implements AutoCloseable {
 
   private RequestMessageFactory getRequestMessageFactory() {
     return requestMessageFactory;
+  }
+
+  @Override
+  public void run() {
+    final Object monitor = new Object();
+    boolean running = true;
+    while (running) {
+      synchronized (monitor) {
+        try {
+          monitor.wait();
+        } catch (InterruptedException e) {
+          running = false;
+        }
+      }
+    }
   }
 
 }

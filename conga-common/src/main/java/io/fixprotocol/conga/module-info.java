@@ -1,5 +1,6 @@
 module conga.common {
   exports io.fixprotocol.conga.buffer;
+  exports io.fixprotocol.conga.io;
   exports io.fixprotocol.conga.messages.appl;
   exports io.fixprotocol.conga.messages.session;
   exports io.fixprotocol.conga.messages.spi;

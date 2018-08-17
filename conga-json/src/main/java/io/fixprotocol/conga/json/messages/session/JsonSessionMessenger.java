@@ -23,6 +23,7 @@ import com.google.gson.JsonParser;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.ThreadLocalBufferSupplier;
+import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
 import io.fixprotocol.conga.json.util.CharBufferReader;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.session.EstablishmentReject;
@@ -38,7 +39,7 @@ import io.fixprotocol.conga.session.SessionSequenceAttributes;
  *
  */
 public class JsonSessionMessenger implements SessionMessenger {
-  private final static Gson gson = new Gson();
+  private final static Gson gson = JsonTranslatorFactory.createTranslator();
   private final BufferSupplier bufferSupplier;
   private final JsonParser parser = new JsonParser();
   

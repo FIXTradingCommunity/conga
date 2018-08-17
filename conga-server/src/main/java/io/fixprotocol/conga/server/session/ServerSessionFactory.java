@@ -38,6 +38,14 @@ public class ServerSessionFactory implements SessionFactory {
   private final SessionMessageConsumer sessionMessageConsumer;
   private final Timer timer;
 
+  /**
+   * Construct a session factory with parameters to set for each session
+   * @param messageProvider
+   * @param sessionMessageConsumer
+   * @param timer
+   * @param executor
+   * @param heartbeatInterval keepalive interval in millis
+   */
   public ServerSessionFactory(MessageProvider messageProvider,
       SessionMessageConsumer sessionMessageConsumer, Timer timer, Executor executor,
       long heartbeatInterval) {
