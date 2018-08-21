@@ -16,6 +16,7 @@
 package io.fixprotocol.conga.buffer;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -140,7 +141,9 @@ public class BufferCache implements List<ByteBuffer> {
   public BufferCache(int cacheCapacity, int bufferCapacity) {
     cache = new ByteBuffer[cacheCapacity];
     for (int i = 0; i < cache.length; i++) {
-      cache[i] = ByteBuffer.allocateDirect(bufferCapacity);
+      final ByteBuffer buffer = ByteBuffer.allocateDirect(bufferCapacity);
+      buffer.order(ByteOrder.nativeOrder());
+      cache[i] = buffer;
     }
   }
 

@@ -16,6 +16,7 @@
 package io.fixprotocol.conga.buffer;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
@@ -44,6 +45,7 @@ public class RingBufferSupplier implements BufferSupplier {
 
     BufferEvent() {
       buffer = ByteBuffer.allocateDirect(capacity);
+      buffer.order(ByteOrder.nativeOrder());
     }
 
     ByteBuffer getBuffer() {
@@ -185,8 +187,10 @@ public class RingBufferSupplier implements BufferSupplier {
   }
 
   public void stop() {
-    disruptor.shutdown();
-    disruptor = null;
+    if (disruptor != null ) {
+      disruptor.shutdown();
+      disruptor = null;
+    }
   }
 
 

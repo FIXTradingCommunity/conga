@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -72,11 +73,13 @@ public class JsonRequestMessageTest {
    */
   @Before
   public void setUp() throws Exception {
-    bufferSupplier = new SingleBufferSupplier(ByteBuffer.allocate(1024));
+    final ByteBuffer buffer = ByteBuffer.allocate(1024);
+    buffer.order(ByteOrder.nativeOrder());
+    bufferSupplier = new SingleBufferSupplier(buffer);
     mutableFactory = new JsonMutableRequestMessageFactory(bufferSupplier);
     factory = new JsonRequestMessageFactory();
     Consumer<Throwable> errorListener = (t) -> t.printStackTrace();
-    writer = new MessageLogWriter(path, errorListener );
+    writer = new MessageLogWriter(path, true, errorListener );
     writer.open();
   }
   

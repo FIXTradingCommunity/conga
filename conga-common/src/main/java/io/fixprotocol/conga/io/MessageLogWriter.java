@@ -43,6 +43,8 @@ public class MessageLogWriter implements Closeable {
   private final SofhEncoder sofhEncoder = new SofhEncoder();
   private final AtomicLong position = new AtomicLong();
   private final Consumer<Throwable> errorListener;
+  private boolean truncateExisting = false;
+  
   private final CompletionHandler<Integer, ByteBuffer> completionHandler = new CompletionHandler<>() {
 
     @Override
@@ -69,12 +71,17 @@ public class MessageLogWriter implements Closeable {
 
   /**
    * Constructor to log to file
+   * <p>
+   * Creates a file if it does not exist.
    * 
    * @param path file path
+   * @param truncateExisting if {@code true} an existing file is truncated, else an existing file
+   * is appended.
    * @throws IOException if the file cannot be opened
    */
-  public MessageLogWriter(Path path, Consumer<Throwable> errorListener) {
+  public MessageLogWriter(Path path, boolean truncateExisting, Consumer<Throwable> errorListener) {
     this.path = Objects.requireNonNull(path);
+    this.truncateExisting = truncateExisting;
     this.errorListener = Objects.requireNonNull(errorListener);
   }
   
@@ -89,12 +96,23 @@ public class MessageLogWriter implements Closeable {
 
   /**
    * Open the log
+   * 
    * @throws IOException if the log cannot be opened
    */
   public void open() throws IOException {
     if (channel == null) {
-      path.getParent().toFile().mkdirs();
-      this.channel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+      // if path has a directory, create full directory tree
+      final Path parent = path.getParent();
+      if (parent != null) {
+        parent.toFile().mkdirs();
+      }
+      if (truncateExisting) {
+        this.channel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+      } else {
+        this.channel =
+            AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+      }
     }
     position.set(channel.size());
   }
@@ -111,9 +129,10 @@ public class MessageLogWriter implements Closeable {
     final int bytesToWrite = buffer.remaining();
     sofhEncoder.encode(bytesToWrite, encodingCode);
     long currentPosition = position.getAndAdd(bytesToWrite + sofhEncoder.encodedLength());
-     channel.write(sofhEncoder.getBuffer(), currentPosition, sofhEncoder.getBuffer(), completionHandler);
-     channel.write(buffer, currentPosition+sofhEncoder.encodedLength(), buffer, completionHandler);
-     return bytesToWrite;
+    final ByteBuffer sofhBuffer = sofhEncoder.getBuffer().duplicate();
+    channel.write(sofhBuffer, currentPosition, sofhBuffer, completionHandler);
+    channel.write(buffer, currentPosition + sofhEncoder.encodedLength(), buffer, completionHandler);
+    return bytesToWrite;
   }
 
 }

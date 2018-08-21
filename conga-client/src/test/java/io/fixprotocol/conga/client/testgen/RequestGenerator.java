@@ -18,6 +18,7 @@ package io.fixprotocol.conga.client.testgen;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -35,7 +36,7 @@ import io.fixprotocol.conga.messages.appl.Side;
 import io.fixprotocol.conga.messages.spi.MessageProvider;
 
 /**
- * @author donme
+ * @author Don Mendelson
  *
  */
 public class RequestGenerator implements AutoCloseable {
@@ -50,7 +51,7 @@ public class RequestGenerator implements AutoCloseable {
   public RequestGenerator(String encoding, String fileName) {
     this.encoding = encoding;
     Path path = FileSystems.getDefault().getPath(fileName);
-    writer = new MessageLogWriter(path, errorListener);
+    writer = new MessageLogWriter(path, true, errorListener);
   }
 
   @Override
@@ -61,7 +62,8 @@ public class RequestGenerator implements AutoCloseable {
   public void init() throws IOException {
     MessageProvider messageProvider = provider(encoding);
     encodingCode = messageProvider.encodingType();
-    BufferSupplier requestBufferSupplier = new SingleBufferSupplier(ByteBuffer.allocate(1024));
+    final ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.nativeOrder());
+    BufferSupplier requestBufferSupplier = new SingleBufferSupplier(buffer);
     requestFactory = messageProvider.getMutableRequestMessageFactory(requestBufferSupplier);
     writer.open();
   }

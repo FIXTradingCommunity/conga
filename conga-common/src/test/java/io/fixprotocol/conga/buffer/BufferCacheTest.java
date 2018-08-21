@@ -18,6 +18,7 @@ package io.fixprotocol.conga.buffer;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -146,6 +147,7 @@ public class BufferCacheTest {
 
   private ByteBuffer createBuffer(String text) {
     ByteBuffer src = ByteBuffer.allocate(1024);
+    src.order(ByteOrder.nativeOrder());
     src.put(text.getBytes());
     src.flip();
     return src;

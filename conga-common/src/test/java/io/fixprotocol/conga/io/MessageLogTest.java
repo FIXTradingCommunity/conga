@@ -25,6 +25,7 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -70,7 +71,7 @@ public class MessageLogTest {
 
     }
 
-    writer = new MessageLogWriter(path, errListener);
+    writer = new MessageLogWriter(path, true, errListener);
     reader = new MessageLogReader(path);
   }
 
@@ -90,20 +91,31 @@ public class MessageLogTest {
   @Test
   public void testWrite() throws IOException {
     writer.open();
-    ByteBuffer in = ByteBuffer.allocate(1024);
-    byte[] src = "abcdefghijkl".getBytes();
-    in.put(src);
-    in.flip();
-    assertEquals(src.length, writer.write(in, testEncoding));
+    byte [][] srcs = new byte [][] {"abcdefghijklm".getBytes(), "nopqrstuvwxyz".getBytes(),
+      "0123456789".getBytes()};
+    for (byte [] src : srcs) {
+      ByteBuffer in = allocateBuffer();
+      in.put(src);
+      in.flip();
+      assertEquals(src.length, writer.write(in, testEncoding));
+    }
     writer.close();
     reader.open();
-    ByteBuffer out = ByteBuffer.allocate(1024);
-    assertEquals(src.length, reader.read(out));
-    byte[] dst = new byte[src.length];
-    out.flip();
-    out.get(dst);
-    assertArrayEquals(src, dst);
+    for (byte [] src : srcs) {
+      ByteBuffer out = allocateBuffer();
+      assertEquals(src.length, reader.read(out));
+      byte[] dst = new byte[src.length];
+      out.flip();
+      out.get(dst);
+      assertArrayEquals(src, dst);
+    }
+    ByteBuffer out = allocateBuffer();
     assertTrue(reader.read(out) <= 0);
+  }
+
+
+  private ByteBuffer allocateBuffer() {
+    return ByteBuffer.allocate(1024).order(ByteOrder.nativeOrder());
   }
 
 }

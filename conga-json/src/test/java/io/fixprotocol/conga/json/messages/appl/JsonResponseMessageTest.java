@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.util.Iterator;
 
@@ -52,7 +53,9 @@ public class JsonResponseMessageTest {
    */
   @Before
   public void setUp() throws Exception {
-    bufferSupplier = new SingleBufferSupplier(ByteBuffer.allocate(1024));
+    final ByteBuffer buffer = ByteBuffer.allocate(1024);
+    buffer.order(ByteOrder.nativeOrder());
+    bufferSupplier = new SingleBufferSupplier(buffer);
     mutableFactory = new JsonMutableResponseMessageFactory(bufferSupplier);
     factory = new JsonResponseMessageFactory();
   }

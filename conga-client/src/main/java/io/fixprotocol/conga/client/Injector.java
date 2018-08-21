@@ -104,17 +104,17 @@ public class Injector extends Trader implements Runnable {
     options.addOption("a", "apipath", true, "API path");
     options.addOption("h", "host", true, "remote host");
     options.addOption(Option.builder("p").longOpt("port").hasArg(true).desc("remote port")
-        .type(Integer.class).build());
+        .type(Number.class).build());
     options.addOption(Option.builder("u").longOpt("uri").hasArg(true)
         .desc("API URI as wss://host.apipath:port").type(URI.class).build());
     options.addOption(Option.builder("t").longOpt("timeout").hasArg(true).desc("timeout seconds")
-        .type(Integer.class).build());
+        .type(Number.class).build());
     options.addOption(Option.builder("k").longOpt("keepalive").hasArg(true)
-        .desc("keepalive interval millis").type(Long.class).build());
+        .desc("keepalive interval millis").type(Number.class).build());
     options.addOption(Option.builder("b").longOpt("batches").hasArg(true)
-        .desc("number of injection batches").type(Integer.class).build());
+        .desc("number of injection batches").type(Number.class).build());
     options.addOption(Option.builder("w").longOpt("wait").hasArg(true)
-        .desc("wait between injection batches in seconds").type(Integer.class).build());
+        .desc("wait between injection batches in seconds").type(Number.class).build());
     options.addOption("?", "help", false, "disply usage");
 
     DefaultParser parser = new DefaultParser();
@@ -145,28 +145,28 @@ public class Injector extends Trader implements Runnable {
         builder.remoteHost(host);
       }
       if (cmd.hasOption("p")) {
-        Integer port = (Integer) cmd.getParsedOptionValue("p");
-        builder.remotePort(port);
+        Number port = (Number) cmd.getParsedOptionValue("p");
+        builder.remotePort(port.intValue());
       }
       if (cmd.hasOption("u")) {
         URI uri = (URI) cmd.getParsedOptionValue("u");
         builder.uri(uri);
       }
       if (cmd.hasOption("t")) {
-        Integer timeoutSeconds = (Integer) cmd.getParsedOptionValue("t");
-        builder.timeoutSeconds(timeoutSeconds);
+        Number timeoutSeconds = (Number) cmd.getParsedOptionValue("t");
+        builder.timeoutSeconds(timeoutSeconds.intValue());
       }
       if (cmd.hasOption("k")) {
-        Long keepalive = (Long) cmd.getParsedOptionValue("l");
-        builder.heartbeatInterval(keepalive);
+        Number keepalive = (Number) cmd.getParsedOptionValue("l");
+        builder.heartbeatInterval(keepalive.longValue());
       }
       if (cmd.hasOption("b")) {
-        Integer batches = (Integer) cmd.getParsedOptionValue("b");
-        builder.batches(batches);
+        Number batches = (Number) cmd.getParsedOptionValue("b");
+        builder.batches(batches.intValue());
       }
       if (cmd.hasOption("w")) {
-        Integer waitSeconds = (Integer) cmd.getParsedOptionValue("w");
-        builder.waitSeconds(waitSeconds);
+        Number waitSeconds = (Number) cmd.getParsedOptionValue("w");
+        builder.waitSeconds(waitSeconds.intValue());
       }
     } catch (ParseException e) {
       System.err.println(e.getMessage());
@@ -212,6 +212,8 @@ public class Injector extends Trader implements Runnable {
       } while (bufferSupply != null);
 
       for (int i = 0; i < batches; i++) {
+        Thread.sleep(waitSeconds*1000L);
+        
         // Inject a batch
         for (BufferSupply supply : supplies) {
           sendApplicationMessage(supply.acquire().duplicate());

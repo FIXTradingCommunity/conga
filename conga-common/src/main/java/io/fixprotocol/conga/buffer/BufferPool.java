@@ -16,6 +16,7 @@
 package io.fixprotocol.conga.buffer;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.ArrayBlockingQueue;
 
 /**
@@ -33,6 +34,7 @@ public class BufferPool implements BufferSupplier {
 
     BufferPoolSupply() {
       this.buffer = ByteBuffer.allocateDirect(capacity);
+      this.buffer.order(ByteOrder.nativeOrder());
     }
 
     @Override

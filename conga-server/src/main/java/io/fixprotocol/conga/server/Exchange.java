@@ -16,7 +16,6 @@
 package io.fixprotocol.conga.server;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -146,11 +145,9 @@ public class Exchange implements Runnable, AutoCloseable {
     options.addOption("c", "contextpath", true, "context path");
     options.addOption("h", "host", true, "local host");
     options.addOption(Option.builder("p").longOpt("port").hasArg(true).desc("listen port")
-        .type(Integer.class).build());
-    options.addOption(Option.builder("t").longOpt("timeout").hasArg(true).desc("timeout seconds")
-        .type(Integer.class).build());
+        .type(Number.class).build());
     options.addOption(Option.builder("k").longOpt("keepalive").hasArg(true).desc("keepalive interval millis")
-        .type(Long.class).build());
+        .type(Number.class).build());
     options.addOption("?", "help", false, "disply usage");
 
     DefaultParser parser = new DefaultParser();
@@ -177,12 +174,12 @@ public class Exchange implements Runnable, AutoCloseable {
         builder.host(host);
       }
       if (cmd.hasOption("p")) {
-        Integer port = (Integer) cmd.getParsedOptionValue("p");
-        builder.port(port);
+        Number port = (Number) cmd.getParsedOptionValue("p");
+        builder.port(port.intValue());
       }
       if (cmd.hasOption("k")) {
-        Long keepalive = (Long) cmd.getParsedOptionValue("l");
-        builder.heartbeatInterval(keepalive);
+        Number keepalive = (Number) cmd.getParsedOptionValue("l");
+        builder.heartbeatInterval(keepalive.longValue());
       }
     } catch (ParseException e) {
       System.err.println(e.getMessage());
@@ -262,9 +259,9 @@ public class Exchange implements Runnable, AutoCloseable {
     this.sessions = new ServerSessions(new ServerSessionFactory(messageProvider,
         sessionMessageConsumer, timer, executor, builder.heartbeatInterval));
     Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
-    this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), 
+    this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), false,
         this.errorListener);
-    this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), 
+    this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), false,
         this.errorListener);
   }
   
@@ -320,6 +317,7 @@ public class Exchange implements Runnable, AutoCloseable {
       final ServerSession session = sessions.getSession(response.getSource());
       try {
         session.sendApplicationMessage(outboundBuffer);
+        outboundBuffer.flip();
         outboundLogWriter.write(outboundBuffer, encodingType);
       } catch (IOException | InterruptedException | IllegalStateException e) {
         session.disconnected();

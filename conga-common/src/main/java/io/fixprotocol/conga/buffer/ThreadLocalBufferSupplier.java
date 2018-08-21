@@ -16,6 +16,7 @@
 package io.fixprotocol.conga.buffer;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -32,9 +33,10 @@ public class ThreadLocalBufferSupplier implements BufferSupplier {
       return new BufferSupply() {
 
         private final AtomicBoolean isAcquired = new AtomicBoolean();
-        private final ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+        private final ByteBuffer buffer =
+            ByteBuffer.allocateDirect(capacity).order(ByteOrder.nativeOrder());
         private String source = null;
-        
+
         @Override
         public ByteBuffer acquire() {
           return isAcquired.compareAndSet(false, true) ? buffer : null;
@@ -75,7 +77,7 @@ public class ThreadLocalBufferSupplier implements BufferSupplier {
   public ThreadLocalBufferSupplier() {
     this.capacity = DEFAULT_CAPACITY;
   }
-  
+
   public ThreadLocalBufferSupplier(int capacity) {
     this.capacity = capacity;
   }
