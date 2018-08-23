@@ -42,6 +42,22 @@ public class JsonMutableEstablishmentReject extends JsonMutableMessage {
     super(bufferSupplier);
   }
 
+  public byte[] getReason() {
+    return reason;
+  }
+
+  public EstablishmentReject getRejectCode() {
+    return rejectCode;
+  }
+
+  public byte[] getSessionId() {
+    return sessionId;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
+  }
+
   public JsonMutableEstablishmentReject set(byte[] sessionId, long timestamp,
       EstablishmentReject rejectCode, byte[] reason) {
     this.sessionId = sessionId;

@@ -100,7 +100,7 @@ public class SbeResponseMessageFactory implements ResponseMessageFactory {
             throw new MessageException("Unknown message template");
         }
       default:
-        throw new MessageException("Unknown message schema");
+        throw new MessageException("Unknown message schema " + schemaId);
     }
   }
 

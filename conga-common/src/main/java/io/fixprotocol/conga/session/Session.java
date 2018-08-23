@@ -450,7 +450,8 @@ public abstract class Session {
     }
     try {
       isHeartbeatDueToReceive.set(false);
-      SessionMessageType messageType = sessionMessenger.getMessageType(buffer);
+      SessionMessageType messageType =
+          sessionMessenger.getMessageType(buffer.duplicate().order(buffer.order()));
 
       switch (messageType) {
         case SEQUENCE:
@@ -509,12 +510,11 @@ public abstract class Session {
         case FINISHED_SENDING:
           MutableMessage mutableMessage = sessionMessenger.encodeFinishedReceiving(sessionId);
           sendMessageAsync(mutableMessage.toBuffer()).thenRun(() -> {
-              mutableMessage.release();
-              doDisconnect();
-            }           
-          );
+            mutableMessage.release();
+            doDisconnect();
+          });
           setSessionState(SessionState.FINALIZED);
-          cancelHeartbeats();          
+          cancelHeartbeats();
           break;
         case FINISHED_RECEIVING:
           setSessionState(SessionState.FINALIZED);
@@ -795,12 +795,10 @@ public abstract class Session {
         for (ByteBuffer buffer : buffers) {
           sendMessage(buffer);
         }
-      } catch(IndexOutOfBoundsException e) {
+      } catch(IndexOutOfBoundsException | InterruptedException e) {
         // TODO report error
       } catch (IOException e) {
         disconnected();
-      } catch (InterruptedException e) {
-
       } finally {
         sendCriticalSection.compareAndSet(true, false);
       }

@@ -74,7 +74,7 @@ public class Injector extends Trader implements Runnable {
 
   public static Builder builder() {
     return new Builder();
-  };
+  }
 
   private static class DefaultMessageConsumer implements ApplicationMessageConsumer {
 
@@ -92,7 +92,6 @@ public class Injector extends Trader implements Runnable {
     try (Injector injector = builder.messageListener(new DefaultMessageConsumer()).build()) {
       injector.open();
       injector.run();
-      injector.close();
     }
   }
 
@@ -181,8 +180,8 @@ public class Injector extends Trader implements Runnable {
   }
 
   private MessageSupplier messageSupplier;
-  private int batches;
-  private int waitSeconds;
+  private final int batches;
+  private final int waitSeconds;
 
   protected Injector(Builder builder) {
     super(builder);

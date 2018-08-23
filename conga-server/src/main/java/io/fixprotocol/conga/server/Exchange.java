@@ -17,6 +17,7 @@ package io.fixprotocol.conga.server;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -26,6 +27,7 @@ import java.util.ServiceLoader;
 import java.util.Timer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -67,15 +69,15 @@ public class Exchange implements Runnable, AutoCloseable {
     public static final long DEFAULT_HEARTBEAT_INTERVAL = 2000L;
     public static final String DEFAULT_HOST = "localhost";
     public static final int DEFAULT_PORT = 8025;
-    private static final String DEFAULT_OUTPUT_PATH = "log";
     public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
+    private static final String DEFAULT_OUTPUT_PATH = "log";
     
+    public String outputPath = DEFAULT_OUTPUT_PATH;
     private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
     private String encoding;
     private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
     private String host = DEFAULT_HOST;
     private int port = DEFAULT_PORT;
-    public String outputPath = DEFAULT_OUTPUT_PATH;
 
     protected Builder() {
 
@@ -133,7 +135,6 @@ public class Exchange implements Runnable, AutoCloseable {
     try (Exchange exchange = builder.build()) {
       exchange.open();
       exchange.run();
-      exchange.close();
     }
   }
   
@@ -198,7 +199,9 @@ public class Exchange implements Runnable, AutoCloseable {
   private Consumer<Throwable> errorListener = (t) -> t.printStackTrace(System.err);
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final String host;
-
+  private final MessageLogWriter inboundLogWriter;
+  private final RingBufferSupplier inboundRingBuffer;
+  
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = new BiConsumer<>() {
 
@@ -212,44 +215,34 @@ public class Exchange implements Runnable, AutoCloseable {
       }
     }
   };
-  
-  private MessageLogWriter inboundLogWriter;
-  private final RingBufferSupplier inboundRingBuffer;
   private final MatchEngine matchEngine;
   private final BufferSupplier outboundBufferSupplier = new BufferPool();
-  private MessageLogWriter outboundLogWriter;
+  private final MessageLogWriter outboundLogWriter;
   private final int port;
   private final RequestMessageFactory requestMessageFactory;
   private ExchangeSocketServer server = null;
-  private final ServerSessions sessions;
-  private final Timer timer = new Timer("Server-timer", true);
   
-  // Consumes application messages from Session
+  // Consumes incoming application messages from Session
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
-      inboundLogWriter.write(buffer.duplicate(), encodingType);
+      getInboundLogWriter().write(buffer.duplicate(), encodingType);
       message = getRequestMessageFactory().wrap(buffer);
       match(source, message);
     } catch (MessageException e) {
       errorListener.accept(e);
     }
   };
-
-  /**
-   * Construct new exchange server.
-   *
-   * @param hostName hostName of the server. If {@code null}, then {@link #DEFAULT_HOST} is used.
-   * @param port port of the server. When provided value is {@code 0}, default port
-   *        ({@value #DEFAULT_PORT}) will be used, when {@code -1}, ephemeral port number will be
-   *        used.
-   * @param heartbeatInterval heartbeat interval in millis
-   */
+  private final ServerSessions sessions;
+  private final Timer timer = new Timer("Server-timer", true);
+  
   private Exchange(Builder builder) {
     this.host = builder.host;
     this.port = builder.port;
     this.contextPath = builder.contextPath;
-    this.inboundRingBuffer = new RingBufferSupplier(incomingMessageConsumer);
+    // Jetty uses big-endian buffers for receiving but converts them to byte[]
+    this.inboundRingBuffer = new RingBufferSupplier(incomingMessageConsumer, 1024, ByteOrder.nativeOrder(), 64,
+        Executors.defaultThreadFactory());
     MessageProvider messageProvider = provider(builder.encoding);
     encodingType = messageProvider.encodingType();
     this.requestMessageFactory = messageProvider.getRequestMessageFactory();
@@ -265,22 +258,6 @@ public class Exchange implements Runnable, AutoCloseable {
         this.errorListener);
   }
   
-  /**
-   * Locate a service provider for an application message encoding
-   * @param name encoding name
-   * @return a service provider
-   */
-  private MessageProvider provider(String name) {
-    ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
-    for (MessageProvider provider : loader) {
-      if (provider.name().equals(name)) {
-        return provider;
-      }
-    }
-    throw new RuntimeException("No MessageProvider found");
-  }
-
-
   @Override
   public void close() {
     executor.shutdown();
@@ -289,8 +266,8 @@ public class Exchange implements Runnable, AutoCloseable {
     }
     inboundRingBuffer.stop();
     try {
-      inboundLogWriter.close();
-      outboundLogWriter.close();
+      getInboundLogWriter().close();
+      getOutboundLogWriter().close();
     } catch (IOException e) {
       errorListener.accept(e);
     }
@@ -299,10 +276,11 @@ public class Exchange implements Runnable, AutoCloseable {
   public String getHost() {
     return host;
   }
-
+  
   public int getPort() {
     return port;
   }
+
 
   public void match(String source, Message message) throws MessageException {
     List<MutableMessage> responses = Collections.emptyList();
@@ -328,22 +306,14 @@ public class Exchange implements Runnable, AutoCloseable {
 
   public void open() throws Exception {
     inboundRingBuffer.start();
-    inboundLogWriter.open();
-    outboundLogWriter.open();
+    getInboundLogWriter().open();
+    getOutboundLogWriter().open();
     String keyStorePath = "selfsigned.pkcs";
     String keyStorePassword = "storepassword";
     server = ExchangeSocketServer.builder().ringBufferSupplier(inboundRingBuffer).host(host)
         .port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).sessions(sessions)
         .build();
     server.run();
-  }
-
-  public void setErrorListener(Consumer<Throwable> errorListener) {
-    this.errorListener = Objects.requireNonNull(errorListener);
-  }
-
-  private RequestMessageFactory getRequestMessageFactory() {
-    return requestMessageFactory;
   }
 
   @Override
@@ -359,6 +329,37 @@ public class Exchange implements Runnable, AutoCloseable {
         }
       }
     }
+  }
+
+  public void setErrorListener(Consumer<Throwable> errorListener) {
+    this.errorListener = Objects.requireNonNull(errorListener);
+  }
+
+  private RequestMessageFactory getRequestMessageFactory() {
+    return requestMessageFactory;
+  }
+
+  /**
+   * Locate a service provider for an application message encoding
+   * @param name encoding name
+   * @return a service provider
+   */
+  private MessageProvider provider(String name) {
+    ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
+    for (MessageProvider provider : loader) {
+      if (provider.name().equals(name)) {
+        return provider;
+      }
+    }
+    throw new RuntimeException("No MessageProvider found");
+  }
+
+  MessageLogWriter getInboundLogWriter() {
+    return inboundLogWriter;
+  }
+
+  MessageLogWriter getOutboundLogWriter() {
+    return outboundLogWriter;
   }
 
 }

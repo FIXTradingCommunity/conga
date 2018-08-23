@@ -15,9 +15,8 @@
 
 package io.fixprotocol.conga.json.messages.session;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,6 +26,7 @@ import org.junit.Test;
 
 import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.SessionAttributes;
+import io.fixprotocol.conga.session.SessionMessageType;
 
 /**
  * @author Don Mendelson
@@ -35,7 +35,7 @@ import io.fixprotocol.conga.session.SessionAttributes;
 public class JsonSessionMessengerTest {
 
   private JsonSessionMessenger messenger;
-  
+
   /**
    * @throws java.lang.Exception
    */
@@ -44,19 +44,51 @@ public class JsonSessionMessengerTest {
     messenger = new JsonSessionMessenger();
   }
 
+  @Test
+  public void establish() throws Exception {
+    byte[] sessionId = UUIDAsBytes(UUID.randomUUID());
+    long timestamp = System.nanoTime();
+    byte[] credentials = null;
+    long heartbeatInterval = 250;
+    long nextSeqNo = 99;
+    JsonMutableEstablish mutableEstablish =
+        messenger.encodeEstablish(sessionId, timestamp, heartbeatInterval, nextSeqNo, credentials);
+    ByteBuffer buffer = mutableEstablish.toBuffer();
+    SessionMessageType type = messenger.getMessageType(buffer.duplicate().order(buffer.order()));
+    assertEquals(SessionMessageType.ESTABLISH, type);
+    SessionAttributes sessionAttributes = new SessionAttributes();
+    messenger.decodeEstablishSessionAttributes(buffer, sessionAttributes);
+    assertEquals(nextSeqNo, sessionAttributes.getNextSeqNo());
+    mutableEstablish.release();
+  }
 
   @Test
-  public void testEncodeNegotiate() throws IOException, InterruptedException {
+  public void negotiate() throws Exception {
     byte[] sessionId = UUIDAsBytes(UUID.randomUUID());
     long timestamp = System.nanoTime();
     FlowType clientFlow = FlowType.Idempotent;
     byte[] credentials = null;
-    JsonMutableNegotiate mutableNegotiate = messenger.encodeNegotiate(sessionId, timestamp, clientFlow, credentials );
+    JsonMutableNegotiate mutableNegotiate =
+        messenger.encodeNegotiate(sessionId, timestamp, clientFlow, credentials);
     ByteBuffer buffer = mutableNegotiate.toBuffer();
+    SessionMessageType type = messenger.getMessageType(buffer.duplicate().order(buffer.order()));
+    assertEquals(SessionMessageType.NEGOTIATE, type);
     SessionAttributes sessionAttributes = new SessionAttributes();
-    messenger.decodeNegotiateSessionAttributes(buffer, sessionAttributes );
+    messenger.decodeNegotiateSessionAttributes(buffer, sessionAttributes);
     assertEquals(clientFlow, sessionAttributes.getFlowType());
     mutableNegotiate.release();
+  }
+
+  @Test
+  public void sequence() throws Exception {
+    long nextSeqNo = 99;
+    JsonMutableSequence mutableSequence =
+        messenger.encodeSequence(nextSeqNo );
+    ByteBuffer buffer = mutableSequence.toBuffer();
+    SessionMessageType type = messenger.getMessageType(buffer.duplicate().order(buffer.order()));
+    assertEquals(SessionMessageType.SEQUENCE, type);
+    assertEquals(nextSeqNo, messenger.decodeSequence(buffer));
+    mutableSequence.release();
   }
   
   private static byte[] UUIDAsBytes(UUID uuid) {

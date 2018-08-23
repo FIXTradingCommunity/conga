@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2015-2018 FIX Protocol Ltd
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -19,6 +19,7 @@ import java.io.PrintStream;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Prints the contents of a buffer in hex and ASCII
@@ -95,7 +96,7 @@ final class BufferDumper {
     StringWriter writer = new StringWriter();
     if (index < bytes.length) {
       writer.append(":");
-      writer.append(new String(bytes, index, Math.min(width, bytes.length - index), "UTF-8")
+      writer.append(new String(bytes, index, Math.min(width, bytes.length - index), StandardCharsets.UTF_8)
           .replaceAll("[^\\x20-\\x7E]", " "));
     }
     return writer.toString();

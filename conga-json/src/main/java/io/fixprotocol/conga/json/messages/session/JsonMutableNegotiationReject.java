@@ -19,7 +19,6 @@ import com.google.gson.annotations.SerializedName;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.json.messages.JsonMutableMessage;
-import io.fixprotocol.conga.session.FlowType;
 import io.fixprotocol.conga.session.NegotiationReject;
 
 /**
@@ -32,7 +31,7 @@ public class JsonMutableNegotiationReject extends JsonMutableMessage {
   private NegotiationReject rejectCode;
   private long requestTimestamp;
   private byte[] sessionId;
-  
+
   @SerializedName("@type")
   private String type = "NegotiationReject";
   
@@ -41,6 +40,20 @@ public class JsonMutableNegotiationReject extends JsonMutableMessage {
    */
   public JsonMutableNegotiationReject(BufferSupplier bufferSupplier) {
     super(bufferSupplier);
+  }
+  public byte[] getReason() {
+    return reason;
+  }
+  public NegotiationReject getRejectCode() {
+    return rejectCode;
+  }
+  
+  public long getRequestTimestamp() {
+    return requestTimestamp;
+  }
+  
+  public byte[] getSessionId() {
+    return sessionId;
   }
 
   public JsonMutableNegotiationReject set(byte[] sessionId, long requestTimestamp,

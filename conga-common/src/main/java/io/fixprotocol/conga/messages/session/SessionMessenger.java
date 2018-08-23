@@ -40,6 +40,8 @@ public interface SessionMessenger {
   void decodeEstablishmentAckSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
   
+  EstablishmentReject decodeEstablishmentReject(ByteBuffer buffer);
+  
   void decodeEstablishSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
 
@@ -52,19 +54,25 @@ public interface SessionMessenger {
   void decodeNegotiateSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
   
+  NegotiationReject decodeNegotiationReject(ByteBuffer buffer);
+  
   void decodeNegotiationResponseSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes);
 
+  void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range);
+  
+  void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range);
+  
   /**
    * Decode a FIXP Sequence message
    * @param buffer holds an encoded Sequence message
    * @return next message sequence number
    */
   long decodeSequence(ByteBuffer buffer);
-  
+
   MutableMessage encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
       long nextSeqNo, byte[] credentials);
-  
+
   MutableMessage encodeEstablishmentAck(byte[] sessionId, long timestamp,
       long heartbeatInterval, long nextSeqNo);
 
@@ -92,11 +100,13 @@ public interface SessionMessenger {
 
   MutableMessage encodeSequence(long nextSeqNo);
 
-  SessionMessageType getMessageType(ByteBuffer buffer);
-
-  void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range);
-
-  void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range);
+  /**
+   * Identifies the type of message in the buffer
+   * @param buffer holds a message
+   * @return the type of message
+   * @throws Exception if the message cannot be parsed or the type is unknown
+   */
+  SessionMessageType getMessageType(ByteBuffer buffer) throws Exception;
 
   /**
    * Initialize

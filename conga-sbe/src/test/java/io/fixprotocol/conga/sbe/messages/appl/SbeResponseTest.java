@@ -13,7 +13,7 @@
  *
  */
 
-package io.fixprotocol.conga.messages.sbe;
+package io.fixprotocol.conga.sbe.messages.appl;
 
 
 

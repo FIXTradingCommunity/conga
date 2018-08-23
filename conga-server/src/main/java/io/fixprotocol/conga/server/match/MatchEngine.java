@@ -197,13 +197,11 @@ public class MatchEngine {
   }
 
   private String getExecId() {
-    executionSequence++;
-    return String.format("E%d", executionSequence);
+    return "E" + ++executionSequence;
   }
 
   private String getOrderId() {
-    orderSequence++;
-    return String.format("O%d", orderSequence);
+    return "O" + ++orderSequence;
   }
 
   private MutableOrderCancelReject populateCancelRejectUnknownOrder(String source,

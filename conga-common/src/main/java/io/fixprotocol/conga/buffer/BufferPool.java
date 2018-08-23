@@ -33,8 +33,7 @@ public class BufferPool implements BufferSupplier {
     private String source = null;
 
     BufferPoolSupply() {
-      this.buffer = ByteBuffer.allocateDirect(capacity);
-      this.buffer.order(ByteOrder.nativeOrder());
+      this.buffer = ByteBuffer.allocateDirect(capacity).order(order);
     }
 
     @Override
@@ -62,6 +61,7 @@ public class BufferPool implements BufferSupplier {
 
   private final int capacity;
   private final ArrayBlockingQueue<BufferPoolSupply> pool;
+  private ByteOrder order;
 
   public static final int DEFAULT_BUFFER_CAPACITY = 1024;
   public static final int DEFAULT_POOL_SIZE = 16;
@@ -70,7 +70,7 @@ public class BufferPool implements BufferSupplier {
    * Constructor with default capacity and pool size
    */
   public BufferPool() {
-    this(DEFAULT_BUFFER_CAPACITY, DEFAULT_POOL_SIZE);
+    this(DEFAULT_BUFFER_CAPACITY, DEFAULT_POOL_SIZE, ByteOrder.nativeOrder());
   }
 
   /**
@@ -79,8 +79,9 @@ public class BufferPool implements BufferSupplier {
    * @param capacity buffer capacity
    * @param poolSize number of buffers in the pool
    */
-  public BufferPool(int capacity, int poolSize) {
+  public BufferPool(int capacity, int poolSize, ByteOrder order) {
     this.capacity = capacity;
+    this.order = order;
     pool = new ArrayBlockingQueue<>(poolSize);
     for (int i = 0; i < poolSize; i++) {
       pool.add(newInstance());

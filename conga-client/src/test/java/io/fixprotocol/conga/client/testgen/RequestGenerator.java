@@ -17,7 +17,6 @@ package io.fixprotocol.conga.client.testgen;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -25,8 +24,8 @@ import java.time.Instant;
 import java.util.ServiceLoader;
 import java.util.function.Consumer;
 
+import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
-import io.fixprotocol.conga.buffer.SingleBufferSupplier;
 import io.fixprotocol.conga.io.MessageLogWriter;
 import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.appl.MutableOrderCancelRequest;
@@ -62,8 +61,7 @@ public class RequestGenerator implements AutoCloseable {
   public void init() throws IOException {
     MessageProvider messageProvider = provider(encoding);
     encodingCode = messageProvider.encodingType();
-    final ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.nativeOrder());
-    BufferSupplier requestBufferSupplier = new SingleBufferSupplier(buffer);
+    BufferSupplier requestBufferSupplier = new BufferPool();
     requestFactory = messageProvider.getMutableRequestMessageFactory(requestBufferSupplier);
     writer.open();
   }

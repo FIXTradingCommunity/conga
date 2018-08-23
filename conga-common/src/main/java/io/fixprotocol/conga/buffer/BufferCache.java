@@ -44,9 +44,6 @@ public class BufferCache implements List<ByteBuffer> {
 
     private int cursor;
 
-    /**
-     * @param index
-     */
     BufferIterator(int index) {
       cursor = index;
     }
@@ -129,7 +126,7 @@ public class BufferCache implements List<ByteBuffer> {
    * Constructor with default buffer size
    */
   public BufferCache() {
-    this(DEFAULT_CACHE_CAPACITY, DEFAULT_BUFFER_CAPACITY);
+    this(DEFAULT_CACHE_CAPACITY, DEFAULT_BUFFER_CAPACITY, ByteOrder.nativeOrder());
   }
 
   /**
@@ -137,13 +134,12 @@ public class BufferCache implements List<ByteBuffer> {
    * 
    * @param cacheCapacity the number of buffers in this cache
    * @param bufferCapacity the capacity of each {@code ByteBuffer}
+   * @param order 
    */
-  public BufferCache(int cacheCapacity, int bufferCapacity) {
+  public BufferCache(int cacheCapacity, int bufferCapacity, ByteOrder order) {
     cache = new ByteBuffer[cacheCapacity];
     for (int i = 0; i < cache.length; i++) {
-      final ByteBuffer buffer = ByteBuffer.allocateDirect(bufferCapacity);
-      buffer.order(ByteOrder.nativeOrder());
-      cache[i] = buffer;
+      cache[i] = ByteBuffer.allocateDirect(bufferCapacity).order(order);
     }
   }
 
@@ -231,7 +227,8 @@ public class BufferCache implements List<ByteBuffer> {
       throw new IndexOutOfBoundsException();
     } else {
       int position = position(index);
-      return cache[position].duplicate();
+      ByteBuffer dup = cache[position].duplicate();
+      return dup.order(cache[position].order());
     }
   }
 
@@ -316,7 +313,7 @@ public class BufferCache implements List<ByteBuffer> {
       int position = position(index);
       ByteBuffer element = getElement(position);
       copyBuffer(src, element);
-      return element.duplicate();
+      return element;
     }
   }
 
@@ -333,7 +330,8 @@ public class BufferCache implements List<ByteBuffer> {
     List<ByteBuffer> array = new ArrayList<>(toIndex - fromIndex);
     ListIterator<java.nio.ByteBuffer> iter = listIterator(fromIndex);
     while (iter.hasNext()) {
-      array.add(iter.next().duplicate());
+      final ByteBuffer buffer = iter.next();
+      array.add(buffer.duplicate().order(buffer.order()));
     }
     return array;
   }
@@ -369,6 +367,7 @@ public class BufferCache implements List<ByteBuffer> {
   private static void copyBuffer(ByteBuffer src, ByteBuffer dest) {
     dest.clear();
     ByteBuffer dup = src.duplicate();
+    dup.order(src.order());
     dest.put(dup);
     dest.flip();
   }

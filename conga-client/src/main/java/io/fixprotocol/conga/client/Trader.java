@@ -200,8 +200,6 @@ public class Trader implements AutoCloseable {
     return new Injector.Builder();
   }
 
-
-  //private short encodingType;
   private final ClientEndpoint endpoint;
   private final Consumer<Throwable> errorListener;
 
@@ -297,7 +295,7 @@ public class Trader implements AutoCloseable {
     }
 
   };
-  private long heartbeatInterval;
+  private final long heartbeatInterval;
   
   protected Trader(@SuppressWarnings("rawtypes") Builder<? extends Trader, ? extends Trader.Builder>  builder) {
     this.applicationMessageConsumer =

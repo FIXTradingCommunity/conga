@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
  */
 public class SofhDecoder {
 
-  private ByteBuffer buffer = ByteBuffer.allocateDirect(16);
+  private final ByteBuffer buffer = ByteBuffer.allocateDirect(16);
 
   public SofhDecoder() {
     buffer.limit(6);

@@ -59,9 +59,11 @@ public class ClientEndpoint implements AutoCloseable {
     public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer src, MessagePart part) {
       webSocket.request(1);
 
-      BufferSupply bufferSupply = ringBuffer.get();
-      bufferSupply.acquireAndCopy(src);
-      bufferSupply.release();
+      if (src.hasRemaining()) {
+        BufferSupply bufferSupply = ringBuffer.get();
+        bufferSupply.acquireAndCopy(src);
+        bufferSupply.release();
+      }
 
       // Returning null indicates normal completion
       return null;

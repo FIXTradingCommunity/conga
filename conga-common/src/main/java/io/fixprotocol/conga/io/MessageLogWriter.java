@@ -30,38 +30,41 @@ import java.util.function.Consumer;
 /**
  * Writes messages to a log asynchronously.
  * <p>
- * Messages are delimited by FIX Simple Open Framing Header.
- * Messages are appended to an existing file.
+ * Messages are delimited by FIX Simple Open Framing Header. Messages are appended to an existing
+ * file.
  * 
  * @author Don Mendelson
  *
  */
 public class MessageLogWriter implements Closeable {
 
+  private final AtomicLong bytesWritten = new AtomicLong();
   private AsynchronousFileChannel channel;
-  private Path path = null;
-  private final SofhEncoder sofhEncoder = new SofhEncoder();
-  private final AtomicLong position = new AtomicLong();
+  private final CompletionHandler<Integer, ByteBuffer> completionHandler =
+      new CompletionHandler<>() {
+
+        @Override
+        public void completed(Integer result, ByteBuffer attachment) {
+          bytesWritten.addAndGet(result);
+        }
+
+        @Override
+        public void failed(Throwable exc, ByteBuffer attachment) {
+          errorListener.accept(exc);
+        }
+
+      };
+      
   private final Consumer<Throwable> errorListener;
+  private Path path = null;
+  private final AtomicLong position = new AtomicLong();
+  private final SofhEncoder sofhEncoder = new SofhEncoder();
   private boolean truncateExisting = false;
-  
-  private final CompletionHandler<Integer, ByteBuffer> completionHandler = new CompletionHandler<>() {
-
-    @Override
-    public void completed(Integer result, ByteBuffer attachment) {
-      // do nothing on success
-    }
-
-    @Override
-    public void failed(Throwable exc, ByteBuffer attachment) {
-      errorListener.accept(exc);
-    }
-    
-  };
 
 
   /**
    * Constructor with an existing channel
+   * 
    * @param channel existing channel
    */
   public MessageLogWriter(AsynchronousFileChannel channel, Consumer<Throwable> errorListener) {
@@ -75,8 +78,8 @@ public class MessageLogWriter implements Closeable {
    * Creates a file if it does not exist.
    * 
    * @param path file path
-   * @param truncateExisting if {@code true} an existing file is truncated, else an existing file
-   * is appended.
+   * @param truncateExisting if {@code true} an existing file is truncated, else an existing file is
+   *        appended.
    * @throws IOException if the file cannot be opened
    */
   public MessageLogWriter(Path path, boolean truncateExisting, Consumer<Throwable> errorListener) {
@@ -84,12 +87,13 @@ public class MessageLogWriter implements Closeable {
     this.truncateExisting = truncateExisting;
     this.errorListener = Objects.requireNonNull(errorListener);
   }
-  
+
   /**
    * Close the log
    */
   public void close() throws IOException {
-    if (channel != null) {
+    if (channel != null && channel.isOpen()) {
+      channel.force(true);
       channel.close();
     }
   }
@@ -133,6 +137,10 @@ public class MessageLogWriter implements Closeable {
     channel.write(sofhBuffer, currentPosition, sofhBuffer, completionHandler);
     channel.write(buffer, currentPosition + sofhEncoder.encodedLength(), buffer, completionHandler);
     return bytesToWrite;
+  }
+
+  long bytesWritten() {
+    return bytesWritten.get();
   }
 
 }

@@ -44,8 +44,7 @@ public class RingBufferSupplier implements BufferSupplier {
     private String source = null;
 
     BufferEvent() {
-      buffer = ByteBuffer.allocateDirect(capacity);
-      buffer.order(ByteOrder.nativeOrder());
+      buffer = ByteBuffer.allocateDirect(capacity).order(order);
     }
 
     ByteBuffer getBuffer() {
@@ -129,6 +128,7 @@ public class RingBufferSupplier implements BufferSupplier {
   };
 
   private final ThreadFactory threadFactory;
+  private ByteOrder order;
 
   /**
    * Constructor with default thread factory and capacity
@@ -136,7 +136,7 @@ public class RingBufferSupplier implements BufferSupplier {
    * @param consumer handles queued buffers
    */
   public RingBufferSupplier(BiConsumer<String, ByteBuffer> consumer) {
-    this(consumer, DEFAULT_BUFFER_CAPACITY, DEFAULT_QUEUE_DEPTH, Executors.defaultThreadFactory());
+    this(consumer, DEFAULT_BUFFER_CAPACITY, ByteOrder.nativeOrder(), DEFAULT_QUEUE_DEPTH, Executors.defaultThreadFactory());
   }
 
   /**
@@ -147,7 +147,7 @@ public class RingBufferSupplier implements BufferSupplier {
    * @param queueDepth number of slots in the circular buffer. Must be a power of 2.
    */
   public RingBufferSupplier(BiConsumer<String, ByteBuffer> consumer, int capacity, int queueDepth) {
-    this(consumer, capacity, queueDepth, Executors.defaultThreadFactory());
+    this(consumer, capacity, ByteOrder.nativeOrder(), queueDepth, Executors.defaultThreadFactory());
   }
 
   /**
@@ -158,9 +158,10 @@ public class RingBufferSupplier implements BufferSupplier {
    * @param queueDepth number of slots in the circular buffer. Must be a power of 2.
    * @param threadFactory creates a thread to dequeue buffers and invoke consumer
    */
-  public RingBufferSupplier(BiConsumer<String, ByteBuffer> consumer, int capacity, int queueDepth,
+  public RingBufferSupplier(BiConsumer<String, ByteBuffer> consumer, int capacity, ByteOrder order, int queueDepth,
       ThreadFactory threadFactory) {
     this.capacity = capacity;
+    this.order = order;
     this.threadFactory = threadFactory;
     this.consumer = consumer;
     this.queueDepth = queueDepth;

@@ -16,6 +16,7 @@
 package io.fixprotocol.conga.json.messages.session;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -25,6 +26,7 @@ import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.ThreadLocalBufferSupplier;
 import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
 import io.fixprotocol.conga.json.util.CharBufferReader;
+import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.session.EstablishmentReject;
 import io.fixprotocol.conga.session.FlowType;
@@ -59,6 +61,13 @@ public class JsonSessionMessenger implements SessionMessenger {
     .nextSeqNo(ack.getNextSeqNo()).timestamp(ack.getTimestamp());
   }
 
+  @Override
+  public EstablishmentReject decodeEstablishmentReject(ByteBuffer buffer) {
+    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
+    JsonMutableEstablishmentReject reject = gson.fromJson(reader, JsonMutableEstablishmentReject.class);
+    return reject.getRejectCode();
+  }
+
   public void decodeEstablishSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
     CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
@@ -85,6 +94,13 @@ public class JsonSessionMessenger implements SessionMessenger {
     JsonMutableNegotiate negotiate = gson.fromJson(reader, JsonMutableNegotiate.class);
     sessionAttributes.sessionId(negotiate.getSessionId()).timestamp(negotiate.getTimestamp())
         .flowType(negotiate.getClientFlow()).credentials(negotiate.getCredentials());
+  }
+
+  @Override
+  public NegotiationReject decodeNegotiationReject(ByteBuffer buffer) {
+    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
+    JsonMutableNegotiationReject reject = gson.fromJson(reader, JsonMutableNegotiationReject.class);
+    return reject.getRejectCode();
   }
 
   public void decodeNegotiationResponseSessionAttributes(ByteBuffer buffer,
@@ -191,11 +207,12 @@ public class JsonSessionMessenger implements SessionMessenger {
     return sequence;
   }
 
-  public SessionMessageType getMessageType(ByteBuffer buffer) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
+  public SessionMessageType getMessageType(ByteBuffer buffer) throws Exception {
+    final CharBuffer charBuffer = buffer.asCharBuffer();
+    final CharBufferReader reader = new CharBufferReader(charBuffer);
     try {
-      JsonObject object = parser.parse(reader).getAsJsonObject();
-      String type = object.get("@type").getAsString();
+      final JsonObject object = parser.parse(reader).getAsJsonObject();
+      final String type = object.get("@type").getAsString();
       switch (type) {
         case "Establish":
           return SessionMessageType.ESTABLISH;
@@ -224,9 +241,9 @@ public class JsonSessionMessenger implements SessionMessenger {
         default:
           return SessionMessageType.APPLICATION;
       }
-    } catch (IllegalStateException e) {
-      // Not a JSON object
-      return SessionMessageType.UNKNOWN;
+    } catch (Exception e) {
+      // Malformed or not a JSON object
+      throw new MessageException("Failed to parse JSON message " + charBuffer.flip().toString(), e);
     }
   }
 

@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 
 import org.agrona.concurrent.UnsafeBuffer;
 
+import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.MutableMessage;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.sbe.messages.fixp.EstablishDecoder;
@@ -67,8 +68,8 @@ public class SbeSessionMessenger implements SessionMessenger {
   
   // wraps dedicated buffers for SBE session messages
   private class SbeMutableMessage implements MutableMessage {
-    private String source;
     private final ByteBuffer buffer;
+    private String source;
     
     SbeMutableMessage(ByteBuffer buffer) {
       this.buffer = buffer;
@@ -161,6 +162,15 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
+  public EstablishmentReject decodeEstablishmentReject(ByteBuffer buffer) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    establishmentRejectDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+    return EstablishmentReject.valueOf(establishmentRejectDecoder.code().name());
+  }
+
+  @Override
   public void decodeEstablishSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
     directBuffer.wrap(buffer);
@@ -225,6 +235,15 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
+  public NegotiationReject decodeNegotiationReject(ByteBuffer buffer) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    negotiationRejectDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+    return NegotiationReject.valueOf(negotiationRejectDecoder.code().name());
+  }
+
+  @Override
   public void decodeNegotiationResponseSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
     directBuffer.wrap(buffer);
@@ -243,6 +262,26 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
+  public void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    retransmissionDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+    range.timestamp(retransmissionDecoder.requestTimestamp())
+        .fromSeqNo(retransmissionDecoder.nextSeqNo()).count(retransmissionDecoder.count());
+  }
+
+  @Override
+  public void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range) {
+    directBuffer.wrap(buffer);
+    headerDecoder.wrap(directBuffer, 0);
+    retransmitRequestDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
+        headerDecoder.blockLength(), headerDecoder.version());
+    range.timestamp(retransmitRequestDecoder.timestamp())
+        .fromSeqNo(retransmitRequestDecoder.fromSeqNo()).count(retransmitRequestDecoder.count());
+  }
+
+  @Override
   public long decodeSequence(ByteBuffer buffer) {
     directBuffer.wrap(buffer);
     headerDecoder.wrap(directBuffer, 0);
@@ -251,7 +290,7 @@ public class SbeSessionMessenger implements SessionMessenger {
     return sequenceDecoder.nextSeqNo();
   }
 
-  public MutableMessage encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
+  public SbeMutableMessage encodeEstablish(byte[] sessionId, long timestamp, long heartbeatInterval,
       long nextSeqNo, byte[] credentials) {
     if (!isClientSession()) {
       throw new IllegalStateException("Establish invoked for server session");
@@ -268,7 +307,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeEstablishmentAck(byte[] sessionId, long timestamp, long heartbeatInterval,
+  public SbeMutableMessage encodeEstablishmentAck(byte[] sessionId, long timestamp, long heartbeatInterval,
       long nextSeqNo) {
     if (isClientSession()) {
       throw new IllegalStateException("Establish Ack invoked for client session");
@@ -286,7 +325,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeEstablishmentReject(byte[] sessionId, long timestamp,
+  public SbeMutableMessage encodeEstablishmentReject(byte[] sessionId, long timestamp,
       EstablishmentReject rejectCode, byte[] reason) {
     if (isClientSession()) {
       throw new IllegalStateException("Establish Reject invoked for client session");
@@ -304,7 +343,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeFinishedReceiving(byte[] sessionId) {
+  public SbeMutableMessage encodeFinishedReceiving(byte[] sessionId) {
     for (int i = 0; i < FinishedReceivingEncoder.sessionIdLength(); i++) {
       finishedReceivingEncoder.sessionId(i, sessionId[i]);
     }
@@ -313,7 +352,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeFinishedSending(byte[] sessionId, long lastSeqNo) {
+  public SbeMutableMessage encodeFinishedSending(byte[] sessionId, long lastSeqNo) {
     for (int i = 0; i < FinishedSendingEncoder.sessionIdLength(); i++) {
       finishedSendingEncoder.sessionId(i, sessionId[i]);
     }
@@ -323,7 +362,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
+  public SbeMutableMessage encodeNegotiate(byte[] sessionId, long timestamp, FlowType clientFlow,
       byte[] credentials) {
     if (!isClientSession()) {
       throw new IllegalStateException("Negotiate invoked for server session");
@@ -342,7 +381,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
+  public SbeMutableMessage encodeNegotiationReject(byte[] sessionId, long requestTimestamp,
       NegotiationReject rejectCode, byte[] reason) {
     if (isClientSession()) {
       throw new IllegalStateException("NegotiationReject invoked for client session");
@@ -360,7 +399,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
+  public SbeMutableMessage encodeNegotiationResponse(byte[] sessionId, long requestTimestamp,
       FlowType serverFlow, byte[] credentials) {
     if (isClientSession()) {
       throw new IllegalStateException("NegotiationResponse invoked for client session");
@@ -379,7 +418,7 @@ public class SbeSessionMessenger implements SessionMessenger {
     return new SbeMutableMessage(negotiationResponseBuffer.duplicate());
   }
 
-  public MutableMessage encodeNotApplied(long fromSeqNo, long count) {
+  public SbeMutableMessage encodeNotApplied(long fromSeqNo, long count) {
     notAppliedEncoder.fromSeqNo(fromSeqNo);
     notAppliedEncoder.count(count);
     notAppliedBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + notAppliedEncoder.encodedLength());
@@ -387,7 +426,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeRetransmission(byte[] sessionId, SequenceRange range) {
+  public SbeMutableMessage encodeRetransmission(byte[] sessionId, SequenceRange range) {
     for (int i = 0; i < RetransmissionEncoder.sessionIdLength(); i++) {
       retransmissionEncoder.sessionId(i, sessionId[i]);
     }
@@ -401,7 +440,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeRetransmitRequest(byte[] sessionId, SequenceRange range) {
+  public SbeMutableMessage encodeRetransmitRequest(byte[] sessionId, SequenceRange range) {
     for (int i = 0; i < RetransmitRequestEncoder.sessionIdLength(); i++) {
       retransmitRequestEncoder.sessionId(i, sessionId[i]);
     }
@@ -415,14 +454,14 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   @Override
-  public MutableMessage encodeSequence(long nextSeqNo) {
+  public SbeMutableMessage encodeSequence(long nextSeqNo) {
     sequenceEncoder.nextSeqNo(nextSeqNo);
     sequenceBuffer.limit(MessageHeaderEncoder.ENCODED_LENGTH + sequenceEncoder.encodedLength());
     return new SbeMutableMessage(sequenceBuffer.duplicate());
   }
 
   @Override
-  public SessionMessageType getMessageType(ByteBuffer buffer) {
+  public SessionMessageType getMessageType(ByteBuffer buffer) throws Exception {
     SessionMessageType messageType = SessionMessageType.UNKNOWN;
     directBuffer.wrap(buffer);
     headerDecoder.wrap(directBuffer, 0);
@@ -467,30 +506,12 @@ public class SbeSessionMessenger implements SessionMessenger {
         case FinishedReceivingEncoder.TEMPLATE_ID:
           messageType = SessionMessageType.FINISHED_RECEIVING;
           break;
+        default:
+          throw new MessageException("Unknown session message; template ID=" + templateId);
       }
     }
 
     return messageType;
-  }
-
-  @Override
-  public void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range) {
-    directBuffer.wrap(buffer);
-    headerDecoder.wrap(directBuffer, 0);
-    retransmissionDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
-        headerDecoder.blockLength(), headerDecoder.version());
-    range.timestamp(retransmissionDecoder.requestTimestamp())
-        .fromSeqNo(retransmissionDecoder.nextSeqNo()).count(retransmissionDecoder.count());
-  }
-
-  @Override
-  public void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range) {
-    directBuffer.wrap(buffer);
-    headerDecoder.wrap(directBuffer, 0);
-    retransmitRequestDecoder.wrap(directBuffer, headerDecoder.encodedLength(),
-        headerDecoder.blockLength(), headerDecoder.version());
-    range.timestamp(retransmitRequestDecoder.timestamp())
-        .fromSeqNo(retransmitRequestDecoder.fromSeqNo()).count(retransmitRequestDecoder.count());
   }
 
   public void init(boolean isClientSession) {

@@ -34,7 +34,7 @@ public class ThreadLocalBufferSupplier implements BufferSupplier {
 
         private final AtomicBoolean isAcquired = new AtomicBoolean();
         private final ByteBuffer buffer =
-            ByteBuffer.allocateDirect(capacity).order(ByteOrder.nativeOrder());
+            ByteBuffer.allocateDirect(capacity).order(order);
         private String source = null;
 
         @Override
@@ -73,13 +73,16 @@ public class ThreadLocalBufferSupplier implements BufferSupplier {
 
   private final int capacity;
 
+  private ByteOrder order;
+
 
   public ThreadLocalBufferSupplier() {
     this.capacity = DEFAULT_CAPACITY;
   }
 
-  public ThreadLocalBufferSupplier(int capacity) {
+  public ThreadLocalBufferSupplier(int capacity, ByteOrder order) {
     this.capacity = capacity;
+    this.order = order;
   }
 
   @Override
