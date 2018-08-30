@@ -22,7 +22,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
-import io.fixprotocol.conga.json.util.CharBufferReader;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.ResponseMessageFactory;
@@ -39,8 +38,8 @@ public class JsonResponseMessageFactory implements ResponseMessageFactory {
 
   public Message wrap(ByteBuffer buffer) throws MessageException {
     this.buffer = buffer;
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonObject object = parser.parse(reader).getAsJsonObject();
+    String string = bufferToString(this.buffer);
+    JsonObject object = parser.parse(string).getAsJsonObject();
     String type = object.get("@type").getAsString();
     switch (type) {
       case "OrderCancelReject":
@@ -55,18 +54,26 @@ public class JsonResponseMessageFactory implements ResponseMessageFactory {
   }
 
   public JsonOrderCancelReject getOrderCancelReject() {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    return gson.fromJson(reader, JsonOrderCancelReject.class);
+    String string = bufferToString(this.buffer);
+    return gson.fromJson(string, JsonOrderCancelReject.class);
   }
 
   public JsonExecutionReport getExecutionReport() {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    return gson.fromJson(reader, JsonExecutionReport.class);
+    String string = bufferToString(this.buffer);
+    return gson.fromJson(string, JsonExecutionReport.class);
   }
 
   public JsonNotApplied getNotApplied() {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    return gson.fromJson(reader, JsonNotApplied.class);
+    String string = bufferToString(this.buffer);
+    return gson.fromJson(string, JsonNotApplied.class);
+  }
+  
+  private String bufferToString(ByteBuffer buffer) {
+    ByteBuffer buf = buffer.duplicate();
+    byte[] dst = new byte[buf.remaining()];
+    buf.get(dst , 0, dst.length);
+    String string = new String(dst);
+    return string;
   }
 
 }

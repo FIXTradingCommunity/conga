@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
-import io.fixprotocol.conga.server.io.callback.BinaryExchangeSocket;
+import io.fixprotocol.conga.server.io.callback.ExchangeSocket;
 import io.fixprotocol.conga.session.Session;
 
 /**
@@ -43,7 +43,7 @@ public class ServerSession extends Session {
     return new Builder();
   }
 
-  private BinaryExchangeSocket transport;
+  private ExchangeSocket transport;
 
   private ServerSession(Builder builder) {
     super(builder);
@@ -51,12 +51,12 @@ public class ServerSession extends Session {
 
   @Override
   public boolean connected(Object transport, String principal) {
-    if (!(transport instanceof BinaryExchangeSocket)) {
+    if (!(transport instanceof ExchangeSocket)) {
       throw new IllegalArgumentException("Unknown transport type");
     }
     final boolean connected = super.connected(transport, principal);
     if (connected) {
-      this.transport = (BinaryExchangeSocket) transport;
+      this.transport = (ExchangeSocket) transport;
     }
     return connected;
   }

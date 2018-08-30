@@ -57,7 +57,6 @@ public class ClientEndpoint implements AutoCloseable {
   private final WebSocket.Listener listener = new WebSocket.Listener() {
 
     public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer src, MessagePart part) {
-      webSocket.request(1);
 
       if (src.hasRemaining()) {
         BufferSupply bufferSupply = ringBuffer.get();
@@ -65,7 +64,21 @@ public class ClientEndpoint implements AutoCloseable {
         bufferSupply.release();
       }
 
+      webSocket.request(1);
       // Returning null indicates normal completion
+      return null;
+    }
+    
+    public CompletionStage<?> onText(WebSocket webSocket, CharSequence message, MessagePart part) {
+      if (message.length() > 0) {
+        BufferSupply bufferSupply = ringBuffer.get();
+        ByteBuffer buffer = bufferSupply.acquire();
+        String str = message.toString();
+        byte [] src = str.getBytes();
+        buffer.put(src);
+        bufferSupply.release();
+      }
+      webSocket.request(1);
       return null;
     }
 
@@ -102,6 +115,7 @@ public class ClientEndpoint implements AutoCloseable {
 
   private final RingBufferSupplier ringBuffer;
   private String source;
+  private final String subprotocol;
   private final long timeoutSeconds;
   private final URI uri;
   private WebSocket webSocket = null;
@@ -111,12 +125,15 @@ public class ClientEndpoint implements AutoCloseable {
    * 
    * @param ringBuffer buffer to queue incoming events
    * @param uri WebSocket URI of the remote server
+   * @param subprotocol WebSocket subprotocol
    * @param timeoutSeconds timeout of open and send operations
    */
-  public ClientEndpoint(RingBufferSupplier ringBuffer, URI uri, int timeoutSeconds) {
+  public ClientEndpoint(RingBufferSupplier ringBuffer, URI uri, String subprotocol,
+      int timeoutSeconds) {
     this.ringBuffer = ringBuffer;
     this.uri = uri;
     this.timeoutSeconds = timeoutSeconds;
+    this.subprotocol = subprotocol;
   }
 
   @Override
@@ -165,9 +182,10 @@ public class ClientEndpoint implements AutoCloseable {
     try {
       if (webSocket == null) {
         final HttpClient httpClient = HttpClient.newHttpClient();
-        webSocket = httpClient.newWebSocketBuilder().subprotocols("binary")
+        webSocket = httpClient.newWebSocketBuilder().subprotocols(subprotocol)
             .connectTimeout(Duration.ofSeconds(timeoutSeconds)).buildAsync(uri, listener).get();
-        final SSLSessionContext clientSessionContext = httpClient.sslContext().getClientSessionContext();
+        final SSLSessionContext clientSessionContext =
+            httpClient.sslContext().getClientSessionContext();
         byte[] id = clientSessionContext.getIds().nextElement();
         SSLSession sslSession = clientSessionContext.getSession(id);
         Principal principal = sslSession.getLocalPrincipal();
@@ -190,8 +208,17 @@ public class ClientEndpoint implements AutoCloseable {
    * @throws IOException if an I/O error occurs or the WebSocket is not open
    */
   public CompletableFuture<ByteBuffer> send(ByteBuffer data) throws Exception {
+    CompletableFuture<WebSocket> future;
     if (null != webSocket) {
-      CompletableFuture<WebSocket> future = webSocket.sendBinary(data, true);
+      if (subprotocol.equals("text")) {
+        int size = data.remaining();
+        byte[] dst = new byte[size];
+        data.get(dst, 0, size);
+        String str = new String(dst);
+        future = webSocket.sendText(str, true);
+      } else {
+        future = webSocket.sendBinary(data, true);
+      }
       return future.thenCompose(w -> CompletableFuture.completedFuture(data));
     } else {
       throw new IOException("WebSocket not open");

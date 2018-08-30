@@ -303,9 +303,8 @@ public class Trader implements AutoCloseable {
     this.errorListener = builder.errorListener;
     this.timeoutSeconds = builder.timeoutSeconds;
     this.ringBuffer = new RingBufferSupplier(inboundMessageConsumer);
-    this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, builder.timeoutSeconds);
     MessageProvider messageProvider = provider(builder.encoding);
-    //encodingType = messageProvider.encodingType();
+    boolean isBinary = messageProvider.isBinary();
     this.requestFactory = messageProvider.getMutableRequestMessageFactory(requestBufferSupplier);
     this.responseFactory = messageProvider.getResponseMessageFactory();
     this.sessionMessenger = messageProvider.getSessionMessenger();
@@ -313,6 +312,9 @@ public class Trader implements AutoCloseable {
     this.sessionEventSubscriber = builder.sessionEventSubscriber;
     //Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
     this.heartbeatInterval = builder.heartbeatInterval;
+    this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, isBinary ? "binary" : "text",
+        builder.timeoutSeconds);
+
   }
 
 

@@ -18,8 +18,6 @@ package io.fixprotocol.conga.json.messages;
 
 
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-
 import com.google.gson.Gson;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
@@ -66,11 +64,8 @@ public class JsonMutableMessage implements MutableMessage {
   @Override
   public ByteBuffer toBuffer() {
     this.buffer = bufferSupply.acquire();
-    final CharBuffer charBuffer = buffer.asCharBuffer();
-    gson.toJson(this, charBuffer);
-    // CharBuffer position is independent of original ByteBuffer
-    int charPos = charBuffer.position();
-    buffer.position(charPos << 1);
+    String string = gson.toJson(this);
+    buffer.put(string.getBytes());
     buffer.flip();
     return buffer;
   }

@@ -451,7 +451,7 @@ public abstract class Session {
     try {
       isHeartbeatDueToReceive.set(false);
       SessionMessageType messageType =
-          sessionMessenger.getMessageType(buffer.duplicate().order(buffer.order()));
+          sessionMessenger.getMessageType(buffer);
 
       switch (messageType) {
         case SEQUENCE:

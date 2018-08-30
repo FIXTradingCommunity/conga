@@ -43,7 +43,7 @@ public class BookSweepGenerator extends RequestGenerator implements Runnable {
    * @throws Exception
    */
   public static void main(String[] args) throws Exception {
-    for (String encoding : new String[] {"SBE", "JSON"}) {
+    for (String encoding : new String[] {/*"SBE", */"JSON"}) {
       String fileName = String.format("BookSweep-%s.dat", encoding);
       try (BookSweepGenerator generator = new BookSweepGenerator(encoding, fileName)) {
         generator.init();

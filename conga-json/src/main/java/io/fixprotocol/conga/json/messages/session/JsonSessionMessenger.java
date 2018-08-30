@@ -25,7 +25,6 @@ import com.google.gson.JsonParser;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.ThreadLocalBufferSupplier;
 import io.fixprotocol.conga.json.messages.gson.JsonTranslatorFactory;
-import io.fixprotocol.conga.json.util.CharBufferReader;
 import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.session.SessionMessenger;
 import io.fixprotocol.conga.session.EstablishmentReject;
@@ -40,6 +39,7 @@ import io.fixprotocol.conga.session.SessionSequenceAttributes;
  * @author Don Mendelson
  *
  */
+@SuppressWarnings("unused")
 public class JsonSessionMessenger implements SessionMessenger {
   private final static Gson gson = JsonTranslatorFactory.createTranslator();
   private final BufferSupplier bufferSupplier;
@@ -55,23 +55,23 @@ public class JsonSessionMessenger implements SessionMessenger {
 
   public void decodeEstablishmentAckSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableEstablishmentAck ack = gson.fromJson(reader, JsonMutableEstablishmentAck.class);
+    String string = bufferToString(buffer);
+    JsonMutableEstablishmentAck ack = gson.fromJson(string, JsonMutableEstablishmentAck.class);
     sessionAttributes.sessionId(ack.getSessionId()).keepAliveInterval(ack.getHeartbeatInterval())
     .nextSeqNo(ack.getNextSeqNo()).timestamp(ack.getTimestamp());
   }
 
   @Override
   public EstablishmentReject decodeEstablishmentReject(ByteBuffer buffer) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableEstablishmentReject reject = gson.fromJson(reader, JsonMutableEstablishmentReject.class);
+    String string = bufferToString(buffer);
+    JsonMutableEstablishmentReject reject = gson.fromJson(string, JsonMutableEstablishmentReject.class);
     return reject.getRejectCode();
   }
 
   public void decodeEstablishSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableEstablish establish = gson.fromJson(reader, JsonMutableEstablish.class);
+    String string = bufferToString(buffer);
+    JsonMutableEstablish establish = gson.fromJson(string, JsonMutableEstablish.class);
     sessionAttributes.sessionId(establish.getSessionId()).keepAliveInterval(establish.getHeartbeatInterval())
     .nextSeqNo(establish.getNextSeqNo()).timestamp(establish.getTimestamp()).credentials(establish.getCredentials());
   }
@@ -90,42 +90,42 @@ public class JsonSessionMessenger implements SessionMessenger {
 
   public void decodeNegotiateSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableNegotiate negotiate = gson.fromJson(reader, JsonMutableNegotiate.class);
+    String string = bufferToString(buffer);
+    JsonMutableNegotiate negotiate = gson.fromJson(string, JsonMutableNegotiate.class);
     sessionAttributes.sessionId(negotiate.getSessionId()).timestamp(negotiate.getTimestamp())
         .flowType(negotiate.getClientFlow()).credentials(negotiate.getCredentials());
   }
 
   @Override
   public NegotiationReject decodeNegotiationReject(ByteBuffer buffer) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableNegotiationReject reject = gson.fromJson(reader, JsonMutableNegotiationReject.class);
+    String string = bufferToString(buffer);
+    JsonMutableNegotiationReject reject = gson.fromJson(string, JsonMutableNegotiationReject.class);
     return reject.getRejectCode();
   }
 
   public void decodeNegotiationResponseSessionAttributes(ByteBuffer buffer,
       SessionAttributes sessionAttributes) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableNegotiationResponse response = gson.fromJson(reader, JsonMutableNegotiationResponse.class);
+    String string = bufferToString(buffer);
+    JsonMutableNegotiationResponse response = gson.fromJson(string, JsonMutableNegotiationResponse.class);
     sessionAttributes.sessionId(response.getSessionId()).timestamp(response.getRequestTimestamp())
         .flowType(response.getServerFlow()).credentials(response.getCredentials());
   }
 
   public void decodeRetransmissionSequenceRange(ByteBuffer buffer, SequenceRange range) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableRetransmission retransmission = gson.fromJson(reader, JsonMutableRetransmission.class);
+    String string = bufferToString(buffer);
+    JsonMutableRetransmission retransmission = gson.fromJson(string, JsonMutableRetransmission.class);
     range.count(retransmission.getCount()).fromSeqNo(retransmission.getFromSeqNo()).timestamp(retransmission.getRequestTimestamp());
   }
 
   public void decodeRetransmitRequestSequenceRange(ByteBuffer buffer, SequenceRange range) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableRetransmitRequest request = gson.fromJson(reader, JsonMutableRetransmitRequest.class);
+    String string = bufferToString(buffer);
+    JsonMutableRetransmitRequest request = gson.fromJson(string, JsonMutableRetransmitRequest.class);
     range.count(request.getCount()).fromSeqNo(request.getFromSeqNo()).timestamp(request.getTimestamp());
   }
 
   public long decodeSequence(ByteBuffer buffer) {
-    CharBufferReader reader = new CharBufferReader(buffer.asCharBuffer());
-    JsonMutableSequence sequence = gson.fromJson(reader, JsonMutableSequence.class);
+    String string = bufferToString(buffer);
+    JsonMutableSequence sequence = gson.fromJson(string, JsonMutableSequence.class);
     return sequence.getNextSeqNo();
   }
 
@@ -208,10 +208,9 @@ public class JsonSessionMessenger implements SessionMessenger {
   }
 
   public SessionMessageType getMessageType(ByteBuffer buffer) throws Exception {
-    final CharBuffer charBuffer = buffer.asCharBuffer();
-    final CharBufferReader reader = new CharBufferReader(charBuffer);
+    String string = bufferToString(buffer);
     try {
-      final JsonObject object = parser.parse(reader).getAsJsonObject();
+      final JsonObject object = parser.parse(string).getAsJsonObject();
       final String type = object.get("@type").getAsString();
       switch (type) {
         case "Establish":
@@ -243,7 +242,7 @@ public class JsonSessionMessenger implements SessionMessenger {
       }
     } catch (Exception e) {
       // Malformed or not a JSON object
-      throw new MessageException("Failed to parse JSON message " + charBuffer.flip().toString(), e);
+      throw new MessageException("Failed to parse JSON message", e);
     }
   }
 
@@ -251,4 +250,11 @@ public class JsonSessionMessenger implements SessionMessenger {
 
   }
 
+  private String bufferToString(ByteBuffer buffer) {
+    ByteBuffer buf = buffer.duplicate();
+    byte[] dst = new byte[buf.remaining()];
+    buf.get(dst , 0, dst.length);
+    String string = new String(dst);
+    return string;
+  }
 }

@@ -73,4 +73,9 @@ public class SbeMessageProvider implements MessageProvider {
     return (short) 0xEB50;
   }
 
+  @Override
+  public boolean isBinary() {
+    return true;
+  }
+
 }

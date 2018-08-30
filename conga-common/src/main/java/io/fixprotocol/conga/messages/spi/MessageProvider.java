@@ -51,4 +51,9 @@ public interface MessageProvider {
   MutableResponseMessageFactory getMutableResponseMessageFactory(BufferSupplier bufferSupplier);
   
   SessionMessenger getSessionMessenger();
+
+  /**
+   * @return {@code true} if encoding is binary, {@code false} if text
+   */
+  boolean isBinary();
 }

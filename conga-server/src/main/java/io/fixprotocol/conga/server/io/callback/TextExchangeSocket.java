@@ -39,20 +39,22 @@ import io.fixprotocol.conga.server.session.ServerSessions;
  * The principal of a request must be retained with a message in order to route responses back to
  * the source.
  * <p>
- * Note that {@code Session} class refers to a WebSocket transport connection, not to a Conga/FIXP session.
+ * Note that {@code Session} class refers to a WebSocket transport connection, not to a Conga/FIXP
+ * session.
  * 
  * @author Don Mendelson
  *
  */
 @WebSocket
-public class BinaryExchangeSocket implements ExchangeSocket {
+public class TextExchangeSocket implements ExchangeSocket {
 
   private final String principal;
   private final RingBufferSupplier ringBuffer;
   private Session webSocketSession;
   private final io.fixprotocol.conga.session.Session fixSession;
 
-  public BinaryExchangeSocket(ServerSessions sessions, RingBufferSupplier ringBuffer, String principal) {
+  public TextExchangeSocket(ServerSessions sessions, RingBufferSupplier ringBuffer,
+      String principal) {
     this.ringBuffer = ringBuffer;
     this.principal = principal;
     this.fixSession = sessions.getSession(principal);
@@ -70,9 +72,10 @@ public class BinaryExchangeSocket implements ExchangeSocket {
   }
 
   @OnWebSocketMessage
-  public void onMessage(Session session, byte src[], int offset, int length) {
+  public void onMessage(Session session, String text) {
+    byte[] bytes = text.getBytes();
     BufferSupply supply = ringBuffer.get();
-    if (null != supply.acquireAndCopy(src, offset, length)) {
+    if (null != supply.acquireAndCopy(bytes, 0, bytes.length)) {
       supply.setSource(principal);
       supply.release();
     } else {
@@ -86,24 +89,17 @@ public class BinaryExchangeSocket implements ExchangeSocket {
     this.fixSession.connected(this, principal);
   }
 
-  /**
-   * Synchronous send
-   * @param buffer holds a message
-   * @throws IOException if unable to send
-   */
+  @Override
   public void send(ByteBuffer buffer) throws IOException {
     webSocketSession.getRemote().sendBytes(buffer);
   }
-  
-  /**
-   * Asynchronous send
-   * @param buffer holds a message
-   * @return a Future to tell when the operations is complete
-   */
+
+  @Override
   public Future<Void> sendAsync(ByteBuffer buffer) {
     return webSocketSession.getRemote().sendBytesByFuture(buffer);
-  } 
-  
+  }
+
+  @Override
   public final void close() {
     try {
       // code for normal closure

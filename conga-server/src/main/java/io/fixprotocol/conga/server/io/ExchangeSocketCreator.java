@@ -23,6 +23,7 @@ import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 import io.fixprotocol.conga.server.io.callback.BinaryExchangeSocket;
+import io.fixprotocol.conga.server.io.callback.TextExchangeSocket;
 import io.fixprotocol.conga.server.session.ServerSessions;
 
 /**
@@ -55,6 +56,9 @@ public class ExchangeSocketCreator implements WebSocketCreator {
       if ("binary".equals(subprotocol)) {
         response.setAcceptedSubProtocol(subprotocol);
         return new BinaryExchangeSocket(sessions, ringBuffer, source);
+      } else if ("text".equals(subprotocol)) {
+        response.setAcceptedSubProtocol(subprotocol);
+        return new TextExchangeSocket(sessions, ringBuffer, source);
       }
     }
 

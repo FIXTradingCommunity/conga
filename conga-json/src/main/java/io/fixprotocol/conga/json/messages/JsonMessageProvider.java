@@ -72,4 +72,9 @@ public class JsonMessageProvider implements MessageProvider {
     return (short) 0xF500;
   }
 
+  @Override
+  public boolean isBinary() {
+    return false;
+  }
+
 }
