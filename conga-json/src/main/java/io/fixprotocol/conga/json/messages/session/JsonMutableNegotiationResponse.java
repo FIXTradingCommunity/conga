@@ -35,10 +35,6 @@ public class JsonMutableNegotiationResponse extends JsonMutableMessage {
   @SerializedName("@type")
   private String type = "NegotiationResponse";
 
-  public JsonMutableNegotiationResponse() {
-    super();
-  }
-
   /**
    * @param bufferSupplier
    */

@@ -27,7 +27,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
@@ -37,7 +36,6 @@ import org.junit.Test;
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
 import io.fixprotocol.conga.io.MessageLogWriter;
-import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
 import io.fixprotocol.conga.messages.appl.MutableOrderCancelRequest;
 import io.fixprotocol.conga.messages.appl.OrdType;
@@ -78,8 +76,7 @@ public class JsonRequestMessageTest {
     bufferSupplier = new SingleBufferSupplier(buffer);
     mutableFactory = new JsonMutableRequestMessageFactory(bufferSupplier);
     factory = new JsonRequestMessageFactory();
-    Consumer<Throwable> errorListener = (t) -> t.printStackTrace();
-    writer = new MessageLogWriter(path, true, errorListener );
+    writer = new MessageLogWriter(path, true);
     writer.open();
   }
   
@@ -91,7 +88,7 @@ public class JsonRequestMessageTest {
   }
 
   @Test
-  public void newOrderSingle() throws MessageException, IOException {
+  public void newOrderSingle() throws Exception {
     MutableNewOrderSingle mutableOrder = mutableFactory.getNewOrderSingle();
     String clOrdId = "C0001";
     mutableOrder.setClOrdId(clOrdId);
@@ -110,7 +107,7 @@ public class JsonRequestMessageTest {
     Instant transactTime = Instant.now();
     mutableOrder.setTransactTime(transactTime);
     ByteBuffer buffer = mutableOrder.toBuffer();
-    writer.write(buffer.duplicate(), (short) 0xF500);
+    writer.writeAsync(buffer.duplicate(), (short) 0xF500).get();
     
     factory.wrap(buffer);
     JsonNewOrderSingle order = factory.getNewOrderSingle();
@@ -124,7 +121,7 @@ public class JsonRequestMessageTest {
   }
 
   @Test
-  public void orderCancelRequest() throws MessageException, IOException {
+  public void orderCancelRequest() throws Exception {
     MutableOrderCancelRequest mutableCancel = mutableFactory.getOrderCancelRequest();
     String clOrdId = "C0001";
     mutableCancel.setClOrdId(clOrdId);
@@ -135,7 +132,7 @@ public class JsonRequestMessageTest {
     Instant transactTime = Instant.now();
     mutableCancel.setTransactTime(transactTime);
     ByteBuffer buffer = mutableCancel.toBuffer();
-    writer.write(buffer.duplicate(), (short) 0xF500);
+    writer.writeAsync(buffer.duplicate(), (short) 0xF500).get();
     
     factory.wrap(buffer);
     JsonOrderCancelRequest cancel = factory.getOrderCancelRequest();

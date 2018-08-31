@@ -242,7 +242,7 @@ public class JsonSessionMessenger implements SessionMessenger {
       }
     } catch (Exception e) {
       // Malformed or not a JSON object
-      throw new MessageException("Failed to parse JSON message", e);
+      throw new MessageException("Failed to parse JSON message " + string, e);
     }
   }
 

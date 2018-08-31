@@ -35,10 +35,6 @@ public class JsonMutableRetransmitRequest extends JsonMutableMessage {
   @SerializedName("@type")
   private String type = "RetransmitRequest";
 
-  public JsonMutableRetransmitRequest() {
-    super();
-  }
-
   /**
    * @param bufferSupplier
    */

@@ -30,10 +30,6 @@ public class JsonMutableSequence extends JsonMutableMessage {
   
   @SerializedName("@type")
   private String type = "Sequence";
-  
-  public JsonMutableSequence() {
-    super();
-  }
 
   /**
    * @param bufferSupplier

@@ -32,19 +32,16 @@ import io.fixprotocol.conga.messages.appl.MutableMessage;
 public class JsonMutableMessage implements MutableMessage {
 
   private final static Gson gson = JsonTranslatorFactory.createTranslator();
-  private transient ByteBuffer buffer = null;
+  private final transient ByteBuffer buffer;
   private final transient BufferSupply bufferSupply;
   private transient String source;
 
-  protected JsonMutableMessage() {
-    this.bufferSupply = null;
-  }
-  
   /**
    * Constructor acquires a buffer
    */
   protected JsonMutableMessage(BufferSupplier bufferSupplier) {
     this.bufferSupply = bufferSupplier.get();
+    this.buffer = bufferSupply.acquire();
   }
 
   public String getSource() {
@@ -63,7 +60,6 @@ public class JsonMutableMessage implements MutableMessage {
 
   @Override
   public ByteBuffer toBuffer() {
-    this.buffer = bufferSupply.acquire();
     String string = gson.toJson(this);
     buffer.put(string.getBytes());
     buffer.flip();

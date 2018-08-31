@@ -35,10 +35,6 @@ public class JsonMutableEstablishmentAck extends JsonMutableMessage {
   @SerializedName("@type")
   private String type = "EstablishmentAck";
 
-  public JsonMutableEstablishmentAck() {
-    super();
-  }
-
   /**
    * @param bufferSupplier
    */

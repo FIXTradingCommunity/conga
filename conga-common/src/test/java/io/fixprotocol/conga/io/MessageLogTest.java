@@ -15,14 +15,10 @@
 
 package io.fixprotocol.conga.io;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,7 +26,11 @@ import java.nio.channels.FileChannel;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.function.Consumer;
+import java.util.concurrent.ExecutionException;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * @author Don Mendelson
@@ -42,22 +42,7 @@ public class MessageLogTest {
   private MessageLogReader reader;
   private final short testEncoding = (short) 0xffff;
   private final Path path = FileSystems.getDefault().getPath("target/test", "test.log");
-  private Consumer<Throwable> errListener = new Consumer<>() {
-
-    @Override
-    public void accept(Throwable t) {
-      t.printStackTrace();
-      fail();
-    }
-    
-  };
-
-  @BeforeClass
-  public static void setUpOnce() {
-    new File("target/test").mkdirs();
-  }
-
-
+ 
   /**
    * @throws java.lang.Exception
    */
@@ -71,7 +56,7 @@ public class MessageLogTest {
 
     }
 
-    writer = new MessageLogWriter(path, true, errListener);
+    writer = new MessageLogWriter(path, true);
     reader = new MessageLogReader(path);
   }
 
@@ -89,7 +74,7 @@ public class MessageLogTest {
   }
 
   @Test
-  public void testWrite() throws IOException {
+  public void testWrite() throws IOException, InterruptedException, ExecutionException {
     writer.open();
     byte [][] srcs = new byte [][] {"abcdefghijklm".getBytes(), "nopqrstuvwxyz".getBytes(),
       "0123456789".getBytes()};
@@ -97,7 +82,7 @@ public class MessageLogTest {
       ByteBuffer in = allocateBuffer();
       in.put(src);
       in.flip();
-      assertEquals(src.length, writer.write(in, testEncoding));
+      assertEquals(src.length, writer.writeAsync(in, testEncoding).get().intValue());
     }
     writer.close();
     reader.open();

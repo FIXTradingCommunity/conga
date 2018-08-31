@@ -201,23 +201,25 @@ public abstract class Session {
     @Override
     public void run() {
       if (isHeartbeatDueToSend()) {
-        try {
-          MutableMessage mutableMessage;
+        MutableMessage mutableMessage = null;
+        try {        
           switch (getSessionState()) {
             case ESTABLISHED:
               mutableMessage = sessionMessenger.encodeSequence(nextSeqNoSent.get());
-              sendMessage(mutableMessage.toBuffer());
-              mutableMessage.release();
+              sendMessage(mutableMessage.toBuffer());             
               break;
             case FINALIZE_REQUESTED:
               mutableMessage = 
                   sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1);
               sendMessage(mutableMessage.toBuffer());
-              mutableMessage.release();
               break;
           }
         } catch (IOException | InterruptedException | IllegalStateException e) {
           disconnected();
+        } finally {
+          if (mutableMessage != null) {
+            mutableMessage.release();
+          }
         }
       }
     }
@@ -327,6 +329,7 @@ public abstract class Session {
     while (!connectedCriticalSection.compareAndSet(false, true)) {
       Thread.yield();
     }
+    MutableMessage mutableMessage = null;
     try {
       if (!isConnected) {
         this.principal = principal;
@@ -334,19 +337,17 @@ public abstract class Session {
         if (isClientSession()) {
           lastRequestTimestamp = getTimeAsNanos();
           SessionState state = getSessionState();
-          MutableMessage mutableMessage;
+          
           switch (state) {
             case NOT_NEGOTIATED:
               mutableMessage = sessionMessenger.encodeNegotiate(sessionId, lastRequestTimestamp, outboundFlowType, credentials);
               sendMessage(mutableMessage.toBuffer());
-              mutableMessage.release();
               break;
             case NEGOTIATED:
             case NOT_ESTABLISHED:
               mutableMessage = sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
                   credentials);
               sendMessage(mutableMessage.toBuffer());
-              mutableMessage.release();
               break;
           }
         }
@@ -361,6 +362,9 @@ public abstract class Session {
       e.printStackTrace();
       return false;
     } finally {
+      if (mutableMessage != null) {
+        mutableMessage.release();
+      }
       connectedCriticalSection.compareAndSet(true, false);
     }
   }
@@ -395,8 +399,11 @@ public abstract class Session {
     final boolean requested = setSessionState(SessionState.FINALIZE_REQUESTED);
     if (requested) {
       MutableMessage mutableMessage = sessionMessenger.encodeFinishedSending(sessionId, nextSeqNoSent.get() - 1);
-      sendMessage(mutableMessage.toBuffer());
-      mutableMessage.release();
+      try {
+        sendMessage(mutableMessage.toBuffer());
+      } finally {
+        mutableMessage.release();
+      }
       return true;
     } else {
       return false;
@@ -554,8 +561,11 @@ public abstract class Session {
 
         if (isSendingRetransmission) {
           MutableMessage mutableMessage = sessionMessenger.encodeSequence(seqNo);
-          sendMessage(mutableMessage.toBuffer());
-          mutableMessage.release();
+          try {
+            sendMessage(mutableMessage.toBuffer());
+          } finally {
+            mutableMessage.release();
+          }
           isSendingRetransmission = false;
         }
         isHeartbeatDueToSend.set(false);
@@ -582,12 +592,16 @@ public abstract class Session {
    * purpose of idempotent message delivery.
    */
   public void sendHeartbeat() {
+    MutableMessage mutableMessage = null;
     try {
-      MutableMessage mutableMessage = sessionMessenger.encodeSequence(nextSeqNoSent.get());
+      mutableMessage = sessionMessenger.encodeSequence(nextSeqNoSent.get());
       sendMessage(mutableMessage.toBuffer());
-      mutableMessage.release();
     } catch (IOException | InterruptedException e) {
       disconnected();
+    } finally {
+      if (mutableMessage != null) {
+        mutableMessage.release();
+      }
     }
   }
   
@@ -656,8 +670,11 @@ public abstract class Session {
     long expectedNextSeqNo = sessionAttributes.getNextSeqNo();
     final long timestamp = sessionAttributes.getTimestamp();
     MutableMessage mutableMessage = sessionMessenger.encodeEstablishmentAck(sessionId, timestamp, heartbeatInterval, nextSeqNoReceived);
-    sendMessage(mutableMessage.toBuffer());
-    mutableMessage.release();
+    try {
+      sendMessage(mutableMessage.toBuffer());
+    } finally {
+      mutableMessage.release();
+    }
     setSessionState(SessionState.ESTABLISHED);
     if (inboundFlowType == FlowType.Recoverable && expectedNextSeqNo < nextSeqNoSent.get()) {
       SequenceRange retransmitRange = new SequenceRange();
@@ -684,8 +701,11 @@ public abstract class Session {
     inboundFlowType = sessionAttributes.getFlowType();
     final long timestamp = sessionAttributes.getTimestamp();
     MutableMessage mutableMessage = sessionMessenger.encodeNegotiationResponse(sessionId, timestamp, outboundFlowType, null);
-    sendMessage(mutableMessage.toBuffer());
-    mutableMessage.release();
+    try {
+      sendMessage(mutableMessage.toBuffer());
+    } finally {
+      mutableMessage.release();
+    }
     setSessionState(SessionState.NEGOTIATED);
   }
 
@@ -707,8 +727,11 @@ public abstract class Session {
     lastRequestTimestamp = getTimeAsNanos();
     MutableMessage mutableMessage = sessionMessenger.encodeEstablish(sessionId, lastRequestTimestamp, heartbeatInterval, nextSeqNoReceived,
         credentials);
-    sendMessage(mutableMessage.toBuffer());
-    mutableMessage.release();
+    try {
+      sendMessage(mutableMessage.toBuffer());
+    } finally {
+      mutableMessage.release();
+    }
   }
 
   private boolean setSessionState(SessionState sessionState) {
@@ -790,8 +813,11 @@ public abstract class Session {
         }
         isSendingRetransmission = true;
         MutableMessage mutableMessage = sessionMessenger.encodeRetransmission(sessionId, retransmitRange);
-        sendMessage(mutableMessage.toBuffer());
-        mutableMessage.release();
+        try {
+          sendMessage(mutableMessage.toBuffer());
+        } finally {
+          mutableMessage.release();
+        }
         for (ByteBuffer buffer : buffers) {
           sendMessage(buffer);
         }
@@ -843,21 +869,20 @@ public abstract class Session {
     long prevNextSeqNo = nextSeqNoReceived;
     nextSeqNoReceived = newNextSeqNo;
     if (newNextSeqNo > nextSeqNoAccepted) {
+      MutableMessage mutableMessage = null;
       try {
-        MutableMessage mutableMessage;
+        
         switch (inboundFlowType) {
           case Recoverable:
             lastRequestTimestamp = getTimeAsNanos();
             retransmitRange.timestamp(lastRequestTimestamp).fromSeqNo(prevNextSeqNo)
                 .count(newNextSeqNo - prevNextSeqNo);
             mutableMessage = sessionMessenger.encodeRetransmitRequest(sessionId, retransmitRange);
-            sendMessage(mutableMessage.toBuffer());
-            mutableMessage.release();
+            sendMessage(mutableMessage.toBuffer());           
             break;
           case Idempotent:
             mutableMessage = sessionMessenger.encodeNotApplied(prevNextSeqNo, newNextSeqNo - prevNextSeqNo);
             sendApplicationMessage(mutableMessage.toBuffer());
-            mutableMessage.release();
             break;
           default:
             // do nothing
@@ -866,6 +891,10 @@ public abstract class Session {
         nextSeqNoAccepted = newNextSeqNo;
       } catch (IOException | InterruptedException e) {
         disconnected();
+      } finally {
+        if (mutableMessage != null) {
+          mutableMessage.release();
+      }
       }
     }
     // if seqNo is too low, just ignore messages until high water mark is reached

@@ -17,12 +17,10 @@ package io.fixprotocol.conga.client.testgen;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteOrder;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ServiceLoader;
-import java.util.function.Consumer;
 
 import io.fixprotocol.conga.buffer.BufferPool;
 import io.fixprotocol.conga.buffer.BufferSupplier;
@@ -41,7 +39,6 @@ import io.fixprotocol.conga.messages.spi.MessageProvider;
 public class RequestGenerator implements AutoCloseable {
 
   private final String encoding;
-  private final Consumer<Throwable> errorListener = Throwable::printStackTrace;
   private final MessageLogWriter writer;
   private MutableRequestMessageFactory requestFactory;
   private short encodingCode;
@@ -50,7 +47,7 @@ public class RequestGenerator implements AutoCloseable {
   public RequestGenerator(String encoding, String fileName) {
     this.encoding = encoding;
     Path path = FileSystems.getDefault().getPath(fileName);
-    writer = new MessageLogWriter(path, true, errorListener);
+    writer = new MessageLogWriter(path, true);
   }
 
   @Override
@@ -65,8 +62,9 @@ public class RequestGenerator implements AutoCloseable {
     requestFactory = messageProvider.getMutableRequestMessageFactory(requestBufferSupplier);
     writer.open();
   }
-  
-  public void generateOrder(String clOrdId, int orderQty, OrdType ordType, BigDecimal price, Side side, String symbol) {
+
+  public void generateOrder(String clOrdId, int orderQty, OrdType ordType, BigDecimal price,
+      Side side, String symbol) throws Exception {
     MutableNewOrderSingle order = requestFactory.getNewOrderSingle();
     order.setClOrdId(clOrdId);
     order.setOrderQty(orderQty);
@@ -75,18 +73,24 @@ public class RequestGenerator implements AutoCloseable {
     order.setSide(side);
     order.setSymbol(symbol);
     order.setTransactTime(Instant.now());
-    writer.write(order.toBuffer(), encodingCode);
-    order.release();
+    try {
+      writer.writeAsync(order.toBuffer(), encodingCode).get();
+    } finally {
+      order.release();
+    }
   }
-  
-  public void generateCancel(String clOrdId, Side side, String symbol) {
+
+  public void generateCancel(String clOrdId, Side side, String symbol) throws Exception {
     MutableOrderCancelRequest cancel = requestFactory.getOrderCancelRequest();
     cancel.setClOrdId(clOrdId);
     cancel.setSide(side);
     cancel.setSymbol(symbol);
     cancel.setTransactTime(Instant.now());
-    writer.write(cancel.toBuffer(), encodingCode);
-    cancel.release();
+    try {
+      writer.writeAsync(cancel.toBuffer(), encodingCode).get();
+    } finally {
+      cancel.release();
+    }
   }
 
   private MessageProvider provider(String name) {

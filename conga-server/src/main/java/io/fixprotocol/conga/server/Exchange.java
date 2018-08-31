@@ -27,7 +27,6 @@ import java.util.ServiceLoader;
 import java.util.Timer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -226,7 +225,7 @@ public class Exchange implements Runnable, AutoCloseable {
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
-      getInboundLogWriter().write(buffer.duplicate(), encodingType);
+      getInboundLogWriter().writeAsync(buffer.duplicate(), encodingType);
       message = getRequestMessageFactory().wrap(buffer);
       match(source, message);
     } catch (MessageException e) {
@@ -252,10 +251,8 @@ public class Exchange implements Runnable, AutoCloseable {
     this.sessions = new ServerSessions(new ServerSessionFactory(messageProvider,
         sessionMessageConsumer, timer, executor, builder.heartbeatInterval));
     Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
-    this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), false,
-        this.errorListener);
-    this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), false,
-        this.errorListener);
+    this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), false);
+    this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), false);
   }
   
   @Override
@@ -296,11 +293,14 @@ public class Exchange implements Runnable, AutoCloseable {
       try {
         session.sendApplicationMessage(outboundBuffer);
         outboundBuffer.flip();
-        outboundLogWriter.write(outboundBuffer, encodingType);
-      } catch (IOException | InterruptedException | IllegalStateException e) {
+        outboundLogWriter.writeAsync(outboundBuffer, encodingType).handle((l,e) -> {
+          response.release();
+          return l;
+        });
+      } catch (IOException | InterruptedException e) {
         session.disconnected();
+        response.release();
       }
-      response.release();
     }
   }
 

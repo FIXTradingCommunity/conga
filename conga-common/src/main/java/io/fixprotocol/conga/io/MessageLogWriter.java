@@ -24,8 +24,8 @@ import java.nio.channels.NonWritableChannelException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 
 /**
  * Writes messages to a log asynchronously.
@@ -38,39 +38,50 @@ import java.util.function.Consumer;
  */
 public class MessageLogWriter implements Closeable {
 
-  private final AtomicLong bytesWritten = new AtomicLong();
+  private class WriteFuture extends CompletableFuture<Long> {
+
+    CompletionHandler<Integer, ByteBuffer> bodyCompletion = new CompletionHandler<>() {
+
+      @Override
+      public void completed(Integer result, ByteBuffer attachment) {
+        WriteFuture.this.complete((long)result);
+      }
+
+      @Override
+      public void failed(Throwable exc, ByteBuffer attachment) {
+        WriteFuture.this.completeExceptionally(exc);
+      }
+
+    };
+
+    CompletionHandler<Integer, ByteBuffer> headerCompletion = new CompletionHandler<>() {
+
+      @Override
+      public void completed(Integer result, ByteBuffer attachment) {
+        // System.out.println("Header written " + result);
+      }
+
+      @Override
+      public void failed(Throwable exc, ByteBuffer attachment) {
+        WriteFuture.this.completeExceptionally(exc);
+      }
+    };
+  }
+  
   private AsynchronousFileChannel channel;
-  private final CompletionHandler<Integer, ByteBuffer> completionHandler =
-      new CompletionHandler<>() {
-
-        @Override
-        public void completed(Integer result, ByteBuffer attachment) {
-          bytesWritten.addAndGet(result);
-        }
-
-        @Override
-        public void failed(Throwable exc, ByteBuffer attachment) {
-          errorListener.accept(exc);
-        }
-
-      };
-      
-  private final Consumer<Throwable> errorListener;
   private Path path = null;
   private final AtomicLong position = new AtomicLong();
   private final SofhEncoder sofhEncoder = new SofhEncoder();
   private boolean truncateExisting = false;
-
 
   /**
    * Constructor with an existing channel
    * 
    * @param channel existing channel
    */
-  public MessageLogWriter(AsynchronousFileChannel channel, Consumer<Throwable> errorListener) {
+  public MessageLogWriter(AsynchronousFileChannel channel) {
     this.channel = Objects.requireNonNull(channel);
-    this.errorListener = Objects.requireNonNull(errorListener);
-  }
+   }
 
   /**
    * Constructor to log to file
@@ -82,10 +93,9 @@ public class MessageLogWriter implements Closeable {
    *        appended.
    * @throws IOException if the file cannot be opened
    */
-  public MessageLogWriter(Path path, boolean truncateExisting, Consumer<Throwable> errorListener) {
+  public MessageLogWriter(Path path, boolean truncateExisting) {
     this.path = Objects.requireNonNull(path);
     this.truncateExisting = truncateExisting;
-    this.errorListener = Objects.requireNonNull(errorListener);
   }
 
   /**
@@ -129,18 +139,16 @@ public class MessageLogWriter implements Closeable {
    * @return The number of bytes written, possibly zero, not included a message delimiter.
    * @throws NonWritableChannelException If this channel was not opened for writing
    */
-  public long write(ByteBuffer buffer, short encodingCode) {
+  public CompletableFuture<Long> writeAsync(ByteBuffer buffer, short encodingCode) {
     final int bytesToWrite = buffer.remaining();
     sofhEncoder.encode(bytesToWrite, encodingCode);
     long currentPosition = position.getAndAdd(bytesToWrite + sofhEncoder.encodedLength());
     final ByteBuffer sofhBuffer = sofhEncoder.getBuffer().duplicate();
-    channel.write(sofhBuffer, currentPosition, sofhBuffer, completionHandler);
-    channel.write(buffer, currentPosition + sofhEncoder.encodedLength(), buffer, completionHandler);
-    return bytesToWrite;
-  }
-
-  long bytesWritten() {
-    return bytesWritten.get();
+    WriteFuture future = new WriteFuture();
+    channel.write(sofhBuffer, currentPosition, sofhBuffer, future.headerCompletion);
+    channel.write(buffer, currentPosition + sofhEncoder.encodedLength(), buffer,
+        future.bodyCompletion);
+    return future;
   }
 
 }

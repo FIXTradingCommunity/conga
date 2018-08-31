@@ -63,19 +63,20 @@ public class MatchEngine {
 
   private final Clock clock;
   private int executionSequence = 0;
-  private final MutableResponseMessageFactory messageFactory;
   private final Map<String, OrderBook> orderBooks = new HashMap<>();
   private int orderSequence = 0;
-  
+  private final MutableResponseMessageFactory responsMessageFactory;
+
   /**
    * Constructor
    * 
-   * <p>Defaults to system clock with UTC zone
+   * <p>
+   * Defaults to system clock with UTC zone
    * 
-   * @param messageFactory generates messages for responses
+   * @param responsMessageFactory generates messages for responses
    */
-  public MatchEngine(MutableResponseMessageFactory messageFactory) {
-    this.messageFactory = messageFactory;
+  public MatchEngine(MutableResponseMessageFactory responsMessageFactory) {
+    this.responsMessageFactory = responsMessageFactory;
     this.clock = Clock.system(ZoneId.of("Z"));
   }
 
@@ -86,10 +87,10 @@ public class MatchEngine {
    * @param clock time provider for testing
    */
   public MatchEngine(MutableResponseMessageFactory messageFactory, Clock clock) {
-    this.messageFactory = messageFactory;
+    this.responsMessageFactory = messageFactory;
     this.clock = clock;
   }
-  
+
   /**
    * Update order book with order cancel request and return response messages
    * 
@@ -158,7 +159,7 @@ public class MatchEngine {
       fillPxs.add(fillIndex, possibleMatch.getPrice());
 
       OrdStatus ordStatus =
-              (possibleMatch.getLeavesQty() == 0) ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
+          (possibleMatch.getLeavesQty() == 0) ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
       MutableExecutionReport executionReport =
           populateExecutionReportTrade(possibleMatch, fillQtys.subList(fillIndex, fillIndex + 1),
               fillPxs.subList(fillIndex, fillIndex + 1), ordStatus);
@@ -181,18 +182,16 @@ public class MatchEngine {
       MutableExecutionReport executionReport =
           populateExecutionReportTrade(workingOrder, fillQtys, fillPxs, OrdStatus.Canceled);
       responses.add(executionReport);
+    } else if (workingOrder.getCumQty() == 0) {
+      MutableExecutionReport executionReport = populateExecutionReportAccepted(workingOrder);
+      responses.add(executionReport);
     } else {
-      OrdStatus ordStatus;
-      if (workingOrder.getCumQty() == 0) {
-        ordStatus = OrdStatus.New;
-      } else {
-        ordStatus = (workingOrder.getLeavesQty() == 0) ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
-      }
+      OrdStatus ordStatus =
+          (workingOrder.getLeavesQty() == 0) ? OrdStatus.Filled : OrdStatus.PartiallyFilled;
       MutableExecutionReport executionReport =
           populateExecutionReportTrade(workingOrder, fillQtys, fillPxs, ordStatus);
       responses.add(executionReport);
     }
-
     return responses;
   }
 
@@ -206,18 +205,36 @@ public class MatchEngine {
 
   private MutableOrderCancelReject populateCancelRejectUnknownOrder(String source,
       OrderCancelRequest cancel) {
-    final MutableOrderCancelReject cancelReject = messageFactory.getOrderCancelReject();
+    final MutableOrderCancelReject cancelReject = responsMessageFactory.getOrderCancelReject();
     cancelReject.setClOrdId(cancel.getClOrdId());
     cancelReject.setCxlRejReason(CxlRejReason.UnknownOrder);
     cancelReject.setOrderId("None");
     cancelReject.setOrdStatus(OrdStatus.Rejected);
     cancelReject.setSource(source);
+    cancelReject.setTransactTime(clock.instant());
     return cancelReject;
+  }
+
+  private MutableExecutionReport populateExecutionReportAccepted(WorkingOrder workingOrder) {
+    MutableExecutionReport executionReport = responsMessageFactory.getExecutionReport();
+    executionReport.setClOrdId(workingOrder.getClOrdId());
+    executionReport.setCumQty(workingOrder.getCumQty());
+    executionReport.setExecId(getExecId());
+    executionReport.setExecType(ExecType.New);
+    executionReport.setLeavesQty(workingOrder.getLeavesQty());
+    executionReport.setOrderId(workingOrder.getOrderId());
+    executionReport.setOrdStatus(OrdStatus.New);
+    executionReport.setSide(workingOrder.getSide());
+    executionReport.setSymbol(workingOrder.getSymbol());
+    executionReport.setSource(workingOrder.getSource());
+    executionReport.setTransactTime(clock.instant());
+    executionReport.setFillCount(0);
+    return executionReport;
   }
 
   private MutableExecutionReport populateExecutionReportCanceled(String source,
       WorkingOrder order) {
-    MutableExecutionReport executionReport = messageFactory.getExecutionReport();
+    MutableExecutionReport executionReport = responsMessageFactory.getExecutionReport();
     executionReport.setClOrdId(order.getClOrdId());
     executionReport.setCumQty(order.getCumQty());
     executionReport.setExecId(getExecId());
@@ -228,12 +245,13 @@ public class MatchEngine {
     executionReport.setSide(order.getSide());
     executionReport.setSymbol(order.getSymbol());
     executionReport.setSource(source);
+    executionReport.setTransactTime(clock.instant());
     return executionReport;
   }
 
   private MutableExecutionReport populateExecutionReportTrade(WorkingOrder workingOrder,
       List<Integer> fillQtys, List<BigDecimal> fillPxs, OrdStatus ordStatus) {
-    MutableExecutionReport executionReport = messageFactory.getExecutionReport();
+    MutableExecutionReport executionReport = responsMessageFactory.getExecutionReport();
     executionReport.setClOrdId(workingOrder.getClOrdId());
     executionReport.setCumQty(workingOrder.getCumQty());
     executionReport.setExecId(getExecId());
@@ -244,6 +262,7 @@ public class MatchEngine {
     executionReport.setSide(workingOrder.getSide());
     executionReport.setSymbol(workingOrder.getSymbol());
     executionReport.setSource(workingOrder.getSource());
+    executionReport.setTransactTime(clock.instant());
     executionReport.setFillCount(fillQtys.size());
     for (int i = 0; i < fillQtys.size(); i++) {
       MutableFill fill = executionReport.nextFill();

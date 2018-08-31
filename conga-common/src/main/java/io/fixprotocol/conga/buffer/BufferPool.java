@@ -38,6 +38,7 @@ public class BufferPool implements BufferSupplier {
 
     @Override
     public ByteBuffer acquire() {
+      assert buffer.position() == 0 : "Buffer not clear";
       return buffer;
     }
 
@@ -49,7 +50,8 @@ public class BufferPool implements BufferSupplier {
     @Override
     public void release() {
       buffer.clear();
-      pool.offer(this);
+      assert !queue.contains(this) : "BufferSupply already released to BufferPool";
+      queue.offer(this);
     }
 
     @Override
@@ -60,7 +62,7 @@ public class BufferPool implements BufferSupplier {
   }
 
   private final int capacity;
-  private final ArrayBlockingQueue<BufferPoolSupply> pool;
+  private final ArrayBlockingQueue<BufferPoolSupply> queue;
   private ByteOrder order;
 
   public static final int DEFAULT_BUFFER_CAPACITY = 1024;
@@ -82,19 +84,23 @@ public class BufferPool implements BufferSupplier {
   public BufferPool(int capacity, int poolSize, ByteOrder order) {
     this.capacity = capacity;
     this.order = order;
-    pool = new ArrayBlockingQueue<>(poolSize);
+    queue = new ArrayBlockingQueue<>(poolSize);
     for (int i = 0; i < poolSize; i++) {
-      pool.add(newInstance());
+      queue.offer(newInstance());
     }
   }
 
   @Override
   public BufferSupply get() {
-    BufferPoolSupply supply = pool.poll();
+    BufferPoolSupply supply = queue.poll();
     if (null == supply) {
       supply = newInstance();
     }
     return supply;
+  }
+
+  public int size() {
+    return queue.size();
   }
 
   private BufferPoolSupply newInstance() {

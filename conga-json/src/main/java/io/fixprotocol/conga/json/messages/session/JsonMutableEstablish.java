@@ -36,10 +36,6 @@ public class JsonMutableEstablish extends JsonMutableMessage {
   @SerializedName("@type")
   private String type = "Establish";
 
-  public JsonMutableEstablish() {
-    super();
-  }
-
   /**
    * @param bufferSupplier
    */

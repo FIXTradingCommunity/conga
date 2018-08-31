@@ -43,7 +43,7 @@ public class BookSweepGenerator extends RequestGenerator implements Runnable {
    * @throws Exception
    */
   public static void main(String[] args) throws Exception {
-    for (String encoding : new String[] {/*"SBE", */"JSON"}) {
+    for (String encoding : new String[] {"SBE", "JSON"}) {
       String fileName = String.format("BookSweep-%s.dat", encoding);
       try (BookSweepGenerator generator = new BookSweepGenerator(encoding, fileName)) {
         generator.init();
@@ -59,16 +59,19 @@ public class BookSweepGenerator extends RequestGenerator implements Runnable {
     BigDecimal tick = new BigDecimal("0.05");
     BigDecimal price = new BigDecimal("1.00");
     int totalQty = 0;
-    
-    for (int i=1; i <= 10; i++) {
-      price = price.add(tick);
-      String clOrdId = genClOrdId();
-      int orderQty = i;
-      totalQty += orderQty;
-      Side side = Side.Buy;
-      generateOrder(clOrdId, orderQty, ordType, price, side, symbol);
+    try {
+      for (int i = 1; i <= 10; i++) {
+        price = price.add(tick);
+        String clOrdId = genClOrdId();
+        int orderQty = i;
+        totalQty += orderQty;
+        Side side = Side.Buy;
+        generateOrder(clOrdId, orderQty, ordType, price, side, symbol);
+      }
+      generateOrder(genClOrdId(), totalQty, ordType, new BigDecimal("1.00"), Side.Sell, symbol);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
-    generateOrder(genClOrdId(), totalQty, ordType, new BigDecimal("1.00"), Side.Sell, symbol);
   }
 
 

@@ -63,6 +63,7 @@ public class LogMessageSupplier implements MessageSupplier {
         buffer.flip();
         return supply;
       } else {
+        supply.release();
         return null;
       }
     } catch (IOException e) {
