@@ -63,13 +63,23 @@ public class ServerSession extends Session {
 
   public void disconnect() {
     if (null != transport) {
-      transport.close();
+      try {
+        transport.close();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
     }
   }
 
   @Override
   protected void doDisconnect() {
-    transport.close();
+    try {
+      transport.close();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
   }
 
   @Override

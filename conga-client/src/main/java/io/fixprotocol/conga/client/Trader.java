@@ -85,14 +85,14 @@ public class Trader implements AutoCloseable {
   public static class Builder<T extends Trader, B extends Builder<T, B>> {
 
 
-    private static final String WEBSOCKET_SCHEME = "wss";
-    public static final String DEFAULT_OUTPUT_PATH = "log";
     public static final String DEFAULT_ENCODING = "SBE";
     public static final long DEFAULT_HEARTBEAT_INTERVAL = 2000L;
     public static final String DEFAULT_HOST = "localhost";
+    public static final String DEFAULT_OUTPUT_PATH = "log";
     public static final String DEFAULT_PATH = "/trade";
     public static final int DEFAULT_PORT = 8025;
     public static final int DEFAULT_TIMEOUT_SECONDS = 30;
+    private static final String WEBSOCKET_SCHEME = "wss";
 
     private static URI createUri(String host, int port, String path) throws URISyntaxException {
       return new URI(WEBSOCKET_SCHEME, null, host, port, path, null, null);
@@ -101,14 +101,14 @@ public class Trader implements AutoCloseable {
     public Subscriber<? super SessionEvent> sessionEventSubscriber;
     private String encoding = DEFAULT_ENCODING;
     private Consumer<Throwable> errorListener = Throwable::printStackTrace;
+    //private String outputPath = DEFAULT_OUTPUT_PATH;
+    private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
     private String host = DEFAULT_HOST;
     private ApplicationMessageConsumer messageListener = null;
     private String path = DEFAULT_PATH;
     private int port = DEFAULT_PORT;
     private int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
     private URI uri = null;
-    //private String outputPath = DEFAULT_OUTPUT_PATH;
-    private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
 
     protected Builder() {
 
@@ -200,9 +200,12 @@ public class Trader implements AutoCloseable {
     return new Injector.Builder();
   }
 
+  private ApplicationMessageConsumer applicationMessageConsumer = null;
   private final ClientEndpoint endpoint;
+
   private final Consumer<Throwable> errorListener;
 
+  private final long heartbeatInterval;
   private final Subscriber<? super SessionEvent> internalEventSubscriber = new Subscriber<>() {
 
 
@@ -257,33 +260,12 @@ public class Trader implements AutoCloseable {
       subscription.request(n);
     }
   };
-
-  private ApplicationMessageConsumer applicationMessageConsumer = null;
   private final BufferSupplier requestBufferSupplier = new BufferPool();
   private final MutableRequestMessageFactory requestFactory;
   private final ResponseMessageFactory responseFactory;
   private final RingBufferSupplier ringBuffer;
   private ClientSession session;
   private final Subscriber<? super SessionEvent> sessionEventSubscriber;
-  private final SessionMessenger sessionMessenger;
-  private final Condition sessionStateCondition;
-  private final ReentrantLock sessionStateLock = new ReentrantLock();
-  private Subscription subscription;
-  private final int timeoutSeconds;
-  private final Timer timer = new Timer("Client-timer", true);
-
-  // Consumes messages from ring buffer
-  private final BiConsumer<String, ByteBuffer> inboundMessageConsumer = (source, buffer) -> {
-    try {
-      session.messageReceived(buffer);
-    } catch (Exception e) {
-      if (getErrorListener() != null) {
-        getErrorListener().accept(e);
-      }
-      session.disconnected();
-    }
-  };
-  
   // Consumes application messages from Session
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -295,7 +277,26 @@ public class Trader implements AutoCloseable {
     }
 
   };
-  private final long heartbeatInterval;
+  private final SessionMessenger sessionMessenger;
+  private final Condition sessionStateCondition;
+  private final ReentrantLock sessionStateLock = new ReentrantLock();
+
+  private Subscription subscription;
+  
+  private final int timeoutSeconds;
+  private final Timer timer = new Timer("Client-timer", true);
+  
+  // Consumes messages from ring buffer
+  private final BiConsumer<String, ByteBuffer> inboundMessageConsumer = (source, buffer) -> {
+    try {
+      session.messageReceived(buffer);
+    } catch (Exception e) {
+      if (getErrorListener() != null) {
+        getErrorListener().accept(e);
+      }
+      session.suspend();
+    }
+  };
   
   protected Trader(@SuppressWarnings("rawtypes") Builder<? extends Trader, ? extends Trader.Builder>  builder) {
     this.applicationMessageConsumer =
@@ -310,11 +311,9 @@ public class Trader implements AutoCloseable {
     this.sessionMessenger = messageProvider.getSessionMessenger();
     sessionStateCondition = sessionStateLock.newCondition();
     this.sessionEventSubscriber = builder.sessionEventSubscriber;
-    //Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
     this.heartbeatInterval = builder.heartbeatInterval;
     this.endpoint = new ClientEndpoint(ringBuffer, builder.uri, isBinary ? "binary" : "text",
         builder.timeoutSeconds);
-
   }
 
 
@@ -412,21 +411,9 @@ public class Trader implements AutoCloseable {
   }
 
   public void suspend() {
-    try {
       if (session != null) {
-        try {
-          sessionStateLock.lockInterruptibly();
-          endpoint.close();
-          while (session.getSessionState() != SessionState.NOT_ESTABLISHED) {
-            sessionStateCondition.await(timeoutSeconds, TimeUnit.SECONDS);
-          }
-        } finally {
-          sessionStateLock.unlock();
-        }
+          session.suspend();
       }
-    } catch (Exception e) {
-      errorListener.accept(e);
-    }
   }
 
   @Override

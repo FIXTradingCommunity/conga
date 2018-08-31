@@ -13,15 +13,16 @@
  *
  */
 
-package io.fixprotocol.conga.client;
+package io.fixprotocol.conga.io;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
-import io.fixprotocol.conga.io.MessageLogReader;
 
 /**
  * Supplies populated message buffers from a log
@@ -29,7 +30,7 @@ import io.fixprotocol.conga.io.MessageLogReader;
  * @author Don Mendelson
  *
  */
-public class LogMessageSupplier implements MessageSupplier {
+public class LogMessageSupplier implements Supplier<BufferSupply>, Closeable  {
 
   private final BufferSupplier bufferSupplier;
   private short lastEncoding;

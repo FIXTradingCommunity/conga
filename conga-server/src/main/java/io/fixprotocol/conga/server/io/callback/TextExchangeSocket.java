@@ -101,11 +101,7 @@ public class TextExchangeSocket implements ExchangeSocket {
 
   @Override
   public final void close() {
-    try {
       // code for normal closure
       webSocketSession.close(1000, "");
-    } catch (Exception e) {
-
-    }
   }
 }

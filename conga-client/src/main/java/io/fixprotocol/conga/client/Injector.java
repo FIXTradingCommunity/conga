@@ -32,6 +32,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
+import io.fixprotocol.conga.io.LogMessageSupplier;
 import io.fixprotocol.conga.messages.appl.ApplicationMessageConsumer;
 import io.fixprotocol.conga.messages.appl.Message;
 
@@ -179,7 +180,7 @@ public class Injector extends Trader implements Runnable {
     formatter.printHelp("Injector", options);
   }
 
-  private MessageSupplier messageSupplier;
+  private LogMessageSupplier messageSupplier;
   private final int batches;
   private final int waitSeconds;
 
@@ -228,5 +229,11 @@ public class Injector extends Trader implements Runnable {
         }
       }
     }
+    try {
+      Thread.sleep(waitSeconds*1000L);
+    } catch (InterruptedException e) {
+
+    }
+    suspend();
   }
 }

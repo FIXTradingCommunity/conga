@@ -140,7 +140,7 @@ public class TraderTest {
   public void quiescent() throws Exception {
     Thread.sleep(10000);
     // System.out.println(trader.toString());
-    trader.suspend();
+    trader.terminate();
     Thread.sleep(2000);
     trader.open();
     Thread.sleep(2000);

@@ -13,19 +13,28 @@
  *
  */
 
-package io.fixprotocol.conga.client;
+package io.fixprotocol.conga.server.io.callback;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.function.Supplier;
-
-import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
+import java.nio.ByteBuffer;
+import java.util.concurrent.Future;
 
 /**
  * @author Don Mendelson
  *
  */
-public interface MessageSupplier extends Supplier<BufferSupply>, Closeable {
+public interface ExchangeSocket extends Closeable {
 
-  void open() throws IOException;
+  /**
+   * @param buffer
+   */
+  void send(ByteBuffer buffer) throws IOException;
+
+  /**
+   * @param buffer
+   * @return
+   */
+  Future<Void> sendAsync(ByteBuffer buffer);
+
 }

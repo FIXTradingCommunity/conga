@@ -104,12 +104,8 @@ public class BinaryExchangeSocket implements ExchangeSocket {
     return webSocketSession.getRemote().sendBytesByFuture(buffer);
   } 
   
-  public final void close() {
-    try {
+  public void close() {
       // code for normal closure
       webSocketSession.close(1000, "");
-    } catch (Exception e) {
-
-    }
   }
 }

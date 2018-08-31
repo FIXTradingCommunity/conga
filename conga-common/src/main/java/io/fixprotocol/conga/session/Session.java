@@ -191,7 +191,8 @@ public abstract class Session {
     @Override
     public void run() {
       if (isHeartbeatDueToReceive()) {
-        doDisconnect();
+        setSessionState(SessionState.NOT_ESTABLISHED);
+        terminate();
       }
     }
   }
@@ -215,7 +216,7 @@ public abstract class Session {
               break;
           }
         } catch (IOException | InterruptedException | IllegalStateException e) {
-          disconnected();
+          suspend();
         } finally {
           if (mutableMessage != null) {
             mutableMessage.release();
@@ -518,15 +519,13 @@ public abstract class Session {
           MutableMessage mutableMessage = sessionMessenger.encodeFinishedReceiving(sessionId);
           sendMessageAsync(mutableMessage.toBuffer()).thenRun(() -> {
             mutableMessage.release();
-            doDisconnect();
           });
           setSessionState(SessionState.FINALIZED);
-          cancelHeartbeats();
+          terminate();
           break;
         case FINISHED_RECEIVING:
           setSessionState(SessionState.FINALIZED);
-          cancelHeartbeats();
-          doDisconnect();
+          terminate();
           break;
         default:
           throw new MessageException("Unknown message type received");
@@ -607,6 +606,11 @@ public abstract class Session {
   
   public void subscribeForEvents(Subscriber<? super SessionEvent> subscriber) {
     eventPublisher.subscribe(subscriber);
+  }
+  
+  private void terminate() {
+    cancelHeartbeats();
+    doDisconnect();
   }
 
   @Override
@@ -898,5 +902,10 @@ public abstract class Session {
       }
     }
     // if seqNo is too low, just ignore messages until high water mark is reached
+  }
+
+  public void suspend() {
+    setSessionState(SessionState.NOT_ESTABLISHED);
+    terminate();
   }
 }
