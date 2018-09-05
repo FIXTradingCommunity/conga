@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.fixprotocol.conga</groupId>
 	<artifactId>conga-parent</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<description>Demonstration of FIX semantics over web protocols</description>
 	<name>${project.groupId}:${project.artifactId}</name>
@@ -54,7 +54,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<commons-cli.version>1.4</commons-cli.version>
 		<java.version>10</java.version>
-		<jetty.version>9.4.11.v20180605</jetty.version>
+		<jetty.version>9.4.12.v20180830</jetty.version>
 		<junit.version>4.12</junit.version>
 	</properties>
 
