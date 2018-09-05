@@ -53,6 +53,7 @@ public interface MessageProvider {
   SessionMessenger getSessionMessenger();
 
   /**
+   * Tells whether an encoding is binary
    * @return {@code true} if encoding is binary, {@code false} if text
    */
   boolean isBinary();

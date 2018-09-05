@@ -20,6 +20,8 @@ import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * A buffer manager that provides buffers in thread local storage
+ *
  * @author Don Mendelson
  *
  */

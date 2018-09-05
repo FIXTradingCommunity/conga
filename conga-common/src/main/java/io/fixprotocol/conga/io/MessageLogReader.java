@@ -29,6 +29,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
 /**
+ * Reads a message log file
+ *
  * @author Don Mendelson
  *
  */

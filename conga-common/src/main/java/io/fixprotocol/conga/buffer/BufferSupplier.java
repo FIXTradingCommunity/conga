@@ -31,6 +31,9 @@ import java.util.function.Supplier;
 @FunctionalInterface
 public interface BufferSupplier extends Supplier<BufferSupplier.BufferSupply> {
 
+  /**
+   * Manages the lifetime of a single buffer provided by a BufferSupplier
+   */
   interface BufferSupply {
     /**
      * Acquire a buffer and populate it from a source byte array

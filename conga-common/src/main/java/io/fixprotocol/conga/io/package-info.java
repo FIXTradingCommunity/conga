@@ -13,37 +13,10 @@
  *
  */
 
-package io.fixprotocol.conga.session;
-
 /**
- * State of a FIXP session
- * 
+ * Common IO including message log readers and writers
+ *
  * @author Don Mendelson
  *
  */
-public enum SessionState {
-  /**
-   * Not negotiated yet
-   */
-  NOT_NEGOTIATED,
-  /**
-   * Negotiated successfully
-   */
-  NEGOTIATED,
-  /**
-   * Established successfully
-   */
-  ESTABLISHED,
-  /**
-   * Transport unbound; may be re-established
-   */
-  NOT_ESTABLISHED,
-  /**
-   * Finished sending application messages, waiting for confirmation
-   */
-  FINALIZE_REQUESTED,
-  /**
-   * Logical flow is finalized; terminal state
-   */
-  FINALIZED
-}
+package io.fixprotocol.conga.io;

@@ -172,6 +172,9 @@ public class RingBufferSupplier implements BufferSupplier {
     return supply;
   }
 
+  /**
+   * Starts a background thread to process events
+   */
   public void start() {
     if (disruptor == null) {
       disruptor = new Disruptor<BufferEvent>(BufferEvent::new, queueDepth, threadFactory,
@@ -187,6 +190,9 @@ public class RingBufferSupplier implements BufferSupplier {
     }
   }
 
+  /**
+   * Stops the background thread
+   */
   public void stop() {
     if (disruptor != null ) {
       disruptor.shutdown();

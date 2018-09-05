@@ -22,11 +22,18 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
 /**
+ * Dumps messages from a log file in humanly readable form
+ *
  * @author Don Mendelson
  *
  */
 public class MessageLogDumper {
 
+  /**
+   * Usage: MessageLogDumper <log-path>
+   * @param args the first argument is the log file path
+   * @throws IOException if the log cannot be read
+   */
   public static void main(String[] args) throws IOException {
     if (args.length >= 1) {
       Path path = FileSystems.getDefault().getPath(args[0]);
