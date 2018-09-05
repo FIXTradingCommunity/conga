@@ -99,7 +99,7 @@ public class Exchange implements Runnable, AutoCloseable {
     /**
      * Set heartbeat interval for new sessions
      * @param heartbeatInterval keepalive interval in millis
-     * @return
+     * @return this Builder
      */
     public Builder heartbeatInterval(long heartbeatInterval) {
       this.heartbeatInterval = heartbeatInterval;
@@ -123,7 +123,7 @@ public class Exchange implements Runnable, AutoCloseable {
   }
 
   /**
-   * @param args
+   * @param args command line arguments. Execute with parameter {@code --help} to display all options.
    * @throws Exception if WebSocket server fails to start
    */
   public static void main(String[] args) throws Exception {
@@ -194,7 +194,7 @@ public class Exchange implements Runnable, AutoCloseable {
   }
 
   private final String contextPath;
-  private short encodingType;
+  private final short encodingType;
   private Consumer<Throwable> errorListener = (t) -> t.printStackTrace(System.err);
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final String host;

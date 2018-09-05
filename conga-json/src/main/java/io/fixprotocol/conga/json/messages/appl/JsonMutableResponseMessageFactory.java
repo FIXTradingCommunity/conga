@@ -29,7 +29,8 @@ public class JsonMutableResponseMessageFactory implements MutableResponseMessage
   private final BufferSupplier bufferSupplier;
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableResponseMessageFactory(BufferSupplier bufferSupplier) {
     this.bufferSupplier = bufferSupplier;

@@ -36,7 +36,8 @@ public class JsonMutableEstablishmentReject extends JsonMutableMessage {
   private String type = "EstablishmentReject";
   
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableEstablishmentReject(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

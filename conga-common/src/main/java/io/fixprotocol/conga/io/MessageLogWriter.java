@@ -40,7 +40,7 @@ public class MessageLogWriter implements Closeable {
 
   private class WriteFuture extends CompletableFuture<Long> {
 
-    CompletionHandler<Integer, ByteBuffer> bodyCompletion = new CompletionHandler<>() {
+    final CompletionHandler<Integer, ByteBuffer> bodyCompletion = new CompletionHandler<>() {
 
       @Override
       public void completed(Integer result, ByteBuffer attachment) {
@@ -54,7 +54,7 @@ public class MessageLogWriter implements Closeable {
 
     };
 
-    CompletionHandler<Integer, ByteBuffer> headerCompletion = new CompletionHandler<>() {
+    final CompletionHandler<Integer, ByteBuffer> headerCompletion = new CompletionHandler<>() {
 
       @Override
       public void completed(Integer result, ByteBuffer attachment) {
@@ -91,7 +91,6 @@ public class MessageLogWriter implements Closeable {
    * @param path file path
    * @param truncateExisting if {@code true} an existing file is truncated, else an existing file is
    *        appended.
-   * @throws IOException if the file cannot be opened
    */
   public MessageLogWriter(Path path, boolean truncateExisting) {
     this.path = Objects.requireNonNull(path);

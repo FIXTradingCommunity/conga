@@ -27,7 +27,7 @@ interface SbeMutableMessageWrapper {
   /**
    * Acquire a buffer to populate
    * 
-   * @param bufferSupplier 
+   * @param bufferSupplier supplies a buffer on demand
    * @return this MutableMessage
    */
   MutableMessage wrap(BufferSupplier bufferSupplier);

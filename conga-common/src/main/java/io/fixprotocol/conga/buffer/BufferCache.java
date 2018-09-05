@@ -134,7 +134,7 @@ public class BufferCache implements List<ByteBuffer> {
    * 
    * @param cacheCapacity the number of buffers in this cache
    * @param bufferCapacity the capacity of each {@code ByteBuffer}
-   * @param order 
+   * @param order byte order of each buffer
    */
   public BufferCache(int cacheCapacity, int bufferCapacity, ByteOrder order) {
     cache = new ByteBuffer[cacheCapacity];

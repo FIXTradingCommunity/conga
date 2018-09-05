@@ -32,7 +32,8 @@ public class JsonMutableFinishedReceiving extends JsonMutableMessage {
   private String type = "FinishedReceiving";
   
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableFinishedReceiving(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

@@ -128,7 +128,7 @@ public class RingBufferSupplier implements BufferSupplier {
   };
 
   private final ThreadFactory threadFactory;
-  private ByteOrder order;
+  private final ByteOrder order;
 
   /**
    * Constructor with default thread factory and capacity

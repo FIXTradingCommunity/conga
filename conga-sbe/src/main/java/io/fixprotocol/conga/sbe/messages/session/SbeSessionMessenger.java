@@ -581,7 +581,7 @@ public class SbeSessionMessenger implements SessionMessenger {
   }
 
   /**
-   * @return
+   * @return {@code true} if this is a client session or {@code false} if server side
    */
   private boolean isClientSession() {
     return isClientSession;

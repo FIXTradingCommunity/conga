@@ -36,7 +36,8 @@ public class JsonMutableNegotiationResponse extends JsonMutableMessage {
   private String type = "NegotiationResponse";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableNegotiationResponse(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

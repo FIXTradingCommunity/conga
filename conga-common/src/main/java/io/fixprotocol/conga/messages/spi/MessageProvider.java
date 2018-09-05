@@ -38,7 +38,7 @@ public interface MessageProvider {
   
   /**
    * Code for the encoding as defined by FIX Simple Open Framing Header
-   * @return
+   * @return encoding type code
    */
   short encodingType();
   

@@ -254,7 +254,6 @@ public class JsonSessionMessenger implements SessionMessenger {
     ByteBuffer buf = buffer.duplicate();
     byte[] dst = new byte[buf.remaining()];
     buf.get(dst , 0, dst.length);
-    String string = new String(dst);
-    return string;
+      return new String(dst);
   }
 }

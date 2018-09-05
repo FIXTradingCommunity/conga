@@ -156,9 +156,7 @@ public class ClientEndpoint implements AutoCloseable {
 
   /**
    * Opens a WebSocket to the server
-   * 
-   * @throws InterruptedException
-   * 
+   *
    * @throws Throwable complete exceptionally with one of the following errors:
    *         <ul>
    *         <li>{@link IOException} - if an I/O error occurs
@@ -197,11 +195,11 @@ public class ClientEndpoint implements AutoCloseable {
   }
 
   /**
-   * Sends a buffer containing a complete message to the server
+   * Sends a buffer containing a complete message to the server asynchronously
    * 
    * @param data The message consists of bytes from the buffer's position to its limit. Upon normal
    *        completion the buffer will have no remaining bytes.
-   * @return
+   * @return if successful, returns a future containing the buffer that was sent upon completion
    * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws ExecutionException if other exceptions occurred
    * @throws InterruptedException if the current thread is interrupted

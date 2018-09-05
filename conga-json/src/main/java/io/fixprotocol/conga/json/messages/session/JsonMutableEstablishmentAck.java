@@ -36,7 +36,8 @@ public class JsonMutableEstablishmentAck extends JsonMutableMessage {
   private String type = "EstablishmentAck";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableEstablishmentAck(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

@@ -51,7 +51,8 @@ public class JsonMutableExecutionReport extends JsonMutableMessage implements Mu
   private final ArrayList<JsonMutableFill> fills = new ArrayList<>();
   
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableExecutionReport(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

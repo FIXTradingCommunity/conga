@@ -34,37 +34,37 @@ public interface MutableNewOrderSingle extends MutableMessage {
 
   /**
    * Set order symbol
-   * @param symbol
+   * @param symbol instrument identifier
    */
   void setSymbol(String symbol);
 
   /**
    * Set order side
-   * @param side
+   * @param side buy or sell
    */
   void setSide(Side side);
 
   /**
    * Set transaction time
-   * @param transactTime
+   * @param transactTime UTC timestamp
    */
   void setTransactTime(Instant transactTime);
 
   /**
    * Set order quantity
-   * @param orderQty
+   * @param orderQty quantity to buy or sell, e.g. shares or contracts
    */
   void setOrderQty(int orderQty);
 
   /**
    * Set order type
-   * @param ordType
+   * @param ordType the type of this order
    */
   void setOrdType(OrdType ordType);
 
   /**
    * Set limit price
-   * @param price
+   * @param price limit price
    */
   void setPrice(BigDecimal price);
 

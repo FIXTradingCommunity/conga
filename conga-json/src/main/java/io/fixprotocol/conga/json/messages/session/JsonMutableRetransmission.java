@@ -36,7 +36,8 @@ public class JsonMutableRetransmission extends JsonMutableMessage {
   private String type = "Retransmission";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableRetransmission(BufferSupplier bufferSupplier) {
     super(bufferSupplier);
@@ -59,8 +60,9 @@ public class JsonMutableRetransmission extends JsonMutableMessage {
   }
 
   /**
-   * @param sessionId
-   * @param range
+   * Sets message values for a range of messages to retransmit
+   * @param sessionId FIXP session identifier
+   * @param range a range of message sequence numbers
    */
   public void set(byte[] sessionId, SequenceRange range) {
     this.sessionId = sessionId;

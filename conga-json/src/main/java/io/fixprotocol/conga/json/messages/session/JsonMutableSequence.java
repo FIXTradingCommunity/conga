@@ -32,7 +32,8 @@ public class JsonMutableSequence extends JsonMutableMessage {
   private String type = "Sequence";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableSequence(BufferSupplier bufferSupplier) {
     super(bufferSupplier);
@@ -43,7 +44,8 @@ public class JsonMutableSequence extends JsonMutableMessage {
   }
 
   /**
-   * @param nextSeqNo
+   * Sets the value of next sequence number
+   * @param nextSeqNo the sequence number of the next message to send
    */
   public void set(long nextSeqNo) {
     this.nextSeqNo = nextSeqNo;

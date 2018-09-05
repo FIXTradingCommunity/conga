@@ -46,7 +46,8 @@ public class JsonMutableNewOrderSingle extends JsonMutableMessage implements Mut
   private final String type = "NewOrderSingle";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableNewOrderSingle(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

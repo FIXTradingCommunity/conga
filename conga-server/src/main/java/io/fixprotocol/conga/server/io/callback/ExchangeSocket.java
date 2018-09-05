@@ -27,13 +27,15 @@ import java.util.concurrent.Future;
 public interface ExchangeSocket extends Closeable {
 
   /**
-   * @param buffer
+   * Send a message synchronously
+   * @param buffer message buffer send
    */
   void send(ByteBuffer buffer) throws IOException;
 
   /**
-   * @param buffer
-   * @return
+   * Send a message asynchronously
+   * @param buffer message buffer to send
+   * @return a future that waits for completion
    */
   Future<Void> sendAsync(ByteBuffer buffer);
 

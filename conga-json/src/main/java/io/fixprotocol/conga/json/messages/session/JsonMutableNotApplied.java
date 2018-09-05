@@ -33,15 +33,17 @@ public class JsonMutableNotApplied extends JsonMutableMessage {
   private String type = "NotApplied";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableNotApplied(BufferSupplier bufferSupplier) {
     super(bufferSupplier);
   }
 
   /**
-   * @param fromSeqNo
-   * @param count
+   * Sets message values for a range of sequence numbers
+   * @param fromSeqNo the first sequence number of messages not applied
+   * @param count the number of messages not applied
    */
   public void set(long fromSeqNo, long count) {
     this.fromSeqNo = fromSeqNo;

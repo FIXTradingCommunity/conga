@@ -37,7 +37,9 @@ public class JsonMutableEstablish extends JsonMutableMessage {
   private String type = "Establish";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   *
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableEstablish(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

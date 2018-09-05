@@ -33,19 +33,19 @@ public interface MutableOrderCancelRequest extends MutableMessage {
 
   /**
    * Set order symbol
-   * @param symbol
+   * @param symbol instrument identifier
    */
   void setSymbol(String symbol);
 
   /**
    * Set order side
-   * @param side
+   * @param side buy or sell
    */
   void setSide(Side side);
 
   /**
    * Set transaction time
-   * @param transactTime
+   * @param transactTime UTC timestamp
    */
   void setTransactTime(Instant transactTime);
 

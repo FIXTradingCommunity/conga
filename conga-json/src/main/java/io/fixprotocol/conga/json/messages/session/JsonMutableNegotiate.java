@@ -37,7 +37,8 @@ public class JsonMutableNegotiate extends JsonMutableMessage {
 
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableNegotiate(BufferSupplier bufferSupplier) {
     super(bufferSupplier);

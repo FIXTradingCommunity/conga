@@ -40,10 +40,10 @@ public class ServerSessionFactory implements SessionFactory {
 
   /**
    * Construct a session factory with parameters to set for each session
-   * @param messageProvider
-   * @param sessionMessageConsumer
-   * @param timer
-   * @param executor
+   * @param messageProvider provides message encoding
+   * @param sessionMessageConsumer part of a message provider dedicated to session messages
+   * @param timer shared timer for events
+   * @param executor runs tasks asynchronously
    * @param heartbeatInterval keepalive interval in millis
    */
   public ServerSessionFactory(MessageProvider messageProvider,

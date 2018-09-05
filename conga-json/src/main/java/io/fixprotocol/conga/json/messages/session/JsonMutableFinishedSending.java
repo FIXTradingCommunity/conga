@@ -33,15 +33,17 @@ public class JsonMutableFinishedSending extends JsonMutableMessage {
   private String type = "FinishedSending";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    */
   public JsonMutableFinishedSending(BufferSupplier bufferSupplier) {
     super(bufferSupplier);
   }
 
   /**
-   * @param sessionId
-   * @param lastSeqNo
+   * Set message values
+   * @param sessionId FIXP session identifier
+   * @param lastSeqNo sequence number of last appplication message sent
    */
   public void set(byte[] sessionId, long lastSeqNo) {
     this.sessionId = sessionId;

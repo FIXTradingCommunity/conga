@@ -44,7 +44,8 @@ public class JsonMutableOrderCancelReject extends JsonMutableMessage implements 
   private final String type = "OrderCancelReject";
 
   /**
-   * @param bufferSupplier
+   * Constructor
+   * @param bufferSupplier supplies a buffer on demand
    * 
    */
   public JsonMutableOrderCancelReject(BufferSupplier bufferSupplier) {

@@ -175,7 +175,7 @@ public abstract class Session {
     /**
      * A shared Timer for scheduled events
      * 
-     * @param timer
+     * @param timer a shared event timer
      * @return this Builder
      */
     public B timer(Timer timer) {
@@ -450,7 +450,7 @@ public abstract class Session {
    * Notifies the Session that a message has been received
    * 
    * @param buffer holds a single message
-   * @throws Exception
+   * @throws Exception if a message cannot be processed
    */
   public void messageReceived(ByteBuffer buffer) throws Exception {
     while (!receivedCriticalSection.compareAndSet(false, true)) {
@@ -517,9 +517,7 @@ public abstract class Session {
           break;
         case FINISHED_SENDING:
           MutableMessage mutableMessage = sessionMessenger.encodeFinishedReceiving(sessionId);
-          sendMessageAsync(mutableMessage.toBuffer()).thenRun(() -> {
-            mutableMessage.release();
-          });
+          sendMessageAsync(mutableMessage.toBuffer()).thenRun(mutableMessage::release);
           setSessionState(SessionState.FINALIZED);
           terminate();
           break;

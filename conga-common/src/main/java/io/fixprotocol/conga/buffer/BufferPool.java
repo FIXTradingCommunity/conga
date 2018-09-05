@@ -63,7 +63,7 @@ public class BufferPool implements BufferSupplier {
 
   private final int capacity;
   private final ArrayBlockingQueue<BufferPoolSupply> queue;
-  private ByteOrder order;
+  private final ByteOrder order;
 
   public static final int DEFAULT_BUFFER_CAPACITY = 1024;
   public static final int DEFAULT_POOL_SIZE = 16;
