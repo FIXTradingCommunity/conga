@@ -15,6 +15,9 @@
 
 package io.fixprotocol.conga.session;
 
+/**
+ * The type of messages that may be sent and received on a FIXP session
+ */
 public enum SessionMessageType {
   /**
    * A new application message

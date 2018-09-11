@@ -15,6 +15,8 @@
 
 /**
  * JSON encoding exposed as a {@code MessageProvider}
+ * <p>
+ * Dependency Gson library requires Java SE module {@code java.sql}
  * 
  * @author Don Mendelson
  *

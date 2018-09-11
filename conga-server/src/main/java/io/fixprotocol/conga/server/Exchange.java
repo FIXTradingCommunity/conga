@@ -225,7 +225,7 @@ public class Exchange implements Runnable, AutoCloseable {
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
     try {
-      getInboundLogWriter().writeAsync(buffer.duplicate(), encodingType);
+      getInboundLogWriter().writeAsync(buffer.duplicate(), getEncodingType());
       message = getRequestMessageFactory().wrap(buffer);
       match(source, message);
     } catch (MessageException e) {
@@ -233,8 +233,8 @@ public class Exchange implements Runnable, AutoCloseable {
     }
   };
   private final ServerSessions sessions;
+
   private final Timer timer = new Timer("Server-timer", true);
-  
   private Exchange(Builder builder) {
     this.host = builder.host;
     this.port = builder.port;
@@ -269,16 +269,15 @@ public class Exchange implements Runnable, AutoCloseable {
       errorListener.accept(e);
     }
   }
-
+  
   public String getHost() {
     return host;
   }
-  
+
   public int getPort() {
     return port;
   }
-
-
+  
   public void match(String source, Message message) throws MessageException {
     List<MutableMessage> responses = Collections.emptyList();
     if (message instanceof NewOrderSingle) {
@@ -293,7 +292,7 @@ public class Exchange implements Runnable, AutoCloseable {
       try {
         session.sendApplicationMessage(outboundBuffer);
         outboundBuffer.flip();
-        outboundLogWriter.writeAsync(outboundBuffer, encodingType).handle((l,e) -> {
+        outboundLogWriter.writeAsync(outboundBuffer, getEncodingType()).handle((l,e) -> {
           response.release();
           return l;
         });
@@ -303,6 +302,7 @@ public class Exchange implements Runnable, AutoCloseable {
       }
     }
   }
+
 
   public void open() throws Exception {
     inboundRingBuffer.start();
@@ -352,6 +352,10 @@ public class Exchange implements Runnable, AutoCloseable {
       }
     }
     throw new RuntimeException("No MessageProvider found");
+  }
+
+  short getEncodingType() {
+    return encodingType;
   }
 
   MessageLogWriter getInboundLogWriter() {
