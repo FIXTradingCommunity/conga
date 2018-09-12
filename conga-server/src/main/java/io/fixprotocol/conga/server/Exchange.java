@@ -50,6 +50,7 @@ import io.fixprotocol.conga.messages.appl.OrderCancelRequest;
 import io.fixprotocol.conga.messages.appl.RequestMessageFactory;
 import io.fixprotocol.conga.messages.spi.MessageProvider;
 import io.fixprotocol.conga.server.io.ExchangeSocketServer;
+import io.fixprotocol.conga.server.io.ExchangeSocketServer.Builder;
 import io.fixprotocol.conga.server.match.MatchEngine;
 import io.fixprotocol.conga.server.session.ServerSession;
 import io.fixprotocol.conga.server.session.ServerSessionFactory;
@@ -70,12 +71,14 @@ public class Exchange implements Runnable, AutoCloseable {
     public static final int DEFAULT_PORT = 8025;
     public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
     private static final String DEFAULT_OUTPUT_PATH = "log";
-    
+
     public String outputPath = DEFAULT_OUTPUT_PATH;
     private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
     private String encoding;
     private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
     private String host = DEFAULT_HOST;
+    private String keyStorePassword = "storepassword";
+    private String keyStorePath = "selfsigned.pkcs";
     private int port = DEFAULT_PORT;
 
     protected Builder() {
@@ -98,6 +101,7 @@ public class Exchange implements Runnable, AutoCloseable {
 
     /**
      * Set heartbeat interval for new sessions
+     * 
      * @param heartbeatInterval keepalive interval in millis
      * @return this Builder
      */
@@ -108,6 +112,17 @@ public class Exchange implements Runnable, AutoCloseable {
 
     public Builder host(String host) {
       this.host = Objects.requireNonNull(host);
+      return this;
+    }
+
+    public Builder keyStorePassword(String keyStorePassword) {
+      this.keyStorePassword = keyStorePassword;
+      return this;
+    }
+
+
+    public Builder keyStorePath(String keyStorePath) {
+      this.keyStorePath = keyStorePath;
       return this;
     }
 
@@ -123,20 +138,21 @@ public class Exchange implements Runnable, AutoCloseable {
   }
 
   /**
-   * @param args command line arguments. Execute with parameter {@code --help} to display all options.
+   * @param args command line arguments. Execute with parameter {@code --help} to display all
+   *        options.
    * @throws Exception if WebSocket server fails to start
    */
   public static void main(String[] args) throws Exception {
 
     final Builder builder = Exchange.builder();
     buildFromArgs(builder, args);
-    
+
     try (Exchange exchange = builder.build()) {
       exchange.open();
       exchange.run();
     }
   }
-  
+
   private static void buildFromArgs(Builder builder, String[] args) {
     Options options = new Options();
     options.addOption("i", "input", true, "path of input file");
@@ -146,8 +162,10 @@ public class Exchange implements Runnable, AutoCloseable {
     options.addOption("h", "host", true, "local host");
     options.addOption(Option.builder("p").longOpt("port").hasArg(true).desc("listen port")
         .type(Number.class).build());
-    options.addOption(Option.builder("k").longOpt("keepalive").hasArg(true).desc("keepalive interval millis")
-        .type(Number.class).build());
+    options.addOption(Option.builder("k").longOpt("keepalive").hasArg(true)
+        .desc("keepalive interval millis").type(Number.class).build());
+    options.addOption("s", "keystorepath", true, "key store path");
+    options.addOption("w", "keystorepassword", true, "key store password");
     options.addOption("?", "help", false, "disply usage");
 
     DefaultParser parser = new DefaultParser();
@@ -173,6 +191,14 @@ public class Exchange implements Runnable, AutoCloseable {
         String host = cmd.getOptionValue("h");
         builder.host(host);
       }
+      if (cmd.hasOption("s")) {
+        String keyStorePath = cmd.getOptionValue("s");
+        builder.keyStorePath(keyStorePath);
+      }
+      if (cmd.hasOption("w")) {
+        String keyStorePassword = cmd.getOptionValue("w");
+        builder.keyStorePassword(keyStorePassword);
+      }
       if (cmd.hasOption("p")) {
         Number port = (Number) cmd.getParsedOptionValue("p");
         builder.port(port.intValue());
@@ -190,7 +216,7 @@ public class Exchange implements Runnable, AutoCloseable {
 
   private static void usage(Options options) {
     HelpFormatter formatter = new HelpFormatter();
-    formatter.printHelp("Injector", options);
+    formatter.printHelp("Exchange", options);
   }
 
   private final String contextPath;
@@ -200,7 +226,7 @@ public class Exchange implements Runnable, AutoCloseable {
   private final String host;
   private final MessageLogWriter inboundLogWriter;
   private final RingBufferSupplier inboundRingBuffer;
-  
+
   // Consumes messages from ring buffer
   private final BiConsumer<String, ByteBuffer> incomingMessageConsumer = new BiConsumer<>() {
 
@@ -214,13 +240,15 @@ public class Exchange implements Runnable, AutoCloseable {
       }
     }
   };
+  private final String keyStorePassword;
+  private final String keyStorePath;
   private final MatchEngine matchEngine;
   private final BufferSupplier outboundBufferSupplier = new BufferPool();
   private final MessageLogWriter outboundLogWriter;
   private final int port;
+
   private final RequestMessageFactory requestMessageFactory;
   private ExchangeSocketServer server = null;
-  
   // Consumes incoming application messages from Session
   private final SessionMessageConsumer sessionMessageConsumer = (source, buffer, seqNo) -> {
     Message message;
@@ -233,15 +261,15 @@ public class Exchange implements Runnable, AutoCloseable {
     }
   };
   private final ServerSessions sessions;
-
   private final Timer timer = new Timer("Server-timer", true);
+
   private Exchange(Builder builder) {
     this.host = builder.host;
     this.port = builder.port;
     this.contextPath = builder.contextPath;
     // Jetty uses big-endian buffers for receiving but converts them to byte[]
-    this.inboundRingBuffer = new RingBufferSupplier(incomingMessageConsumer, 1024, ByteOrder.nativeOrder(), 64,
-        Executors.defaultThreadFactory());
+    this.inboundRingBuffer = new RingBufferSupplier(incomingMessageConsumer, 1024,
+        ByteOrder.nativeOrder(), 64, Executors.defaultThreadFactory());
     MessageProvider messageProvider = provider(builder.encoding);
     encodingType = messageProvider.encodingType();
     this.requestMessageFactory = messageProvider.getRequestMessageFactory();
@@ -253,8 +281,10 @@ public class Exchange implements Runnable, AutoCloseable {
     Path outputPath = FileSystems.getDefault().getPath(builder.outputPath);
     this.inboundLogWriter = new MessageLogWriter(outputPath.resolve("inbound.log"), false);
     this.outboundLogWriter = new MessageLogWriter(outputPath.resolve("outbound.log"), false);
+    this.keyStorePath = builder.keyStorePath;
+    this.keyStorePassword = builder.keyStorePassword;
   }
-  
+
   @Override
   public void close() {
     executor.shutdown();
@@ -269,7 +299,7 @@ public class Exchange implements Runnable, AutoCloseable {
       errorListener.accept(e);
     }
   }
-  
+
   public String getHost() {
     return host;
   }
@@ -277,7 +307,7 @@ public class Exchange implements Runnable, AutoCloseable {
   public int getPort() {
     return port;
   }
-  
+
   public void match(String source, Message message) throws MessageException {
     List<MutableMessage> responses = Collections.emptyList();
     if (message instanceof NewOrderSingle) {
@@ -292,7 +322,7 @@ public class Exchange implements Runnable, AutoCloseable {
       try {
         session.sendApplicationMessage(outboundBuffer);
         outboundBuffer.flip();
-        outboundLogWriter.writeAsync(outboundBuffer, getEncodingType()).handle((l,e) -> {
+        outboundLogWriter.writeAsync(outboundBuffer, getEncodingType()).handle((l, e) -> {
           response.release();
           return l;
         });
@@ -308,8 +338,6 @@ public class Exchange implements Runnable, AutoCloseable {
     inboundRingBuffer.start();
     getInboundLogWriter().open();
     getOutboundLogWriter().open();
-    String keyStorePath = "selfsigned.pkcs";
-    String keyStorePassword = "storepassword";
     server = ExchangeSocketServer.builder().ringBufferSupplier(inboundRingBuffer).host(host)
         .port(port).keyStorePath(keyStorePath).keyStorePassword(keyStorePassword).sessions(sessions)
         .build();
@@ -341,6 +369,7 @@ public class Exchange implements Runnable, AutoCloseable {
 
   /**
    * Locate a service provider for an application message encoding
+   * 
    * @param name encoding name
    * @return a service provider
    */

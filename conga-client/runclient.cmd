@@ -1,0 +1,1 @@
+java  -Djavax.net.ssl.trustStore=client.pkcs -Djavax.net.ssl.trustStorePassword=storepassword --module-path=target/modules --class-path=target/modules/* --add-modules=conga.json,java.sql,conga.sbe --module=conga.client/io.fixprotocol.conga.client.Injector -e SBE -i BookSweep-SBE.dat -w 3 -b 10

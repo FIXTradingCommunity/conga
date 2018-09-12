@@ -49,8 +49,8 @@ public class ExchangeSocketServer {
     private ServerSessions sessions;
     private String host = "localhost";
     private String keyManagerPassword = null;
-    private String keyStorePassword;
-    private String keyStorePath;
+    private String keyStorePassword = null;
+    private String keyStorePath = null;
     private int port = 8443;
     private RingBufferSupplier ringBuffer;
 
