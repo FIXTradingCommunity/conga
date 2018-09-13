@@ -32,7 +32,7 @@ import io.fixprotocol.conga.messages.appl.Side;
  * @author Don Mendelson
  *
  */
-public class OrderBook {
+class OrderBook {
 
   private final NavigableSet<WorkingOrder> bids;
   private final NavigableSet<WorkingOrder> offers;

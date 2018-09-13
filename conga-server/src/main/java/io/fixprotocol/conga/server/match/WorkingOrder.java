@@ -23,10 +23,12 @@ import io.fixprotocol.conga.messages.appl.OrdType;
 import io.fixprotocol.conga.messages.appl.Side;
 
 /**
+ * State of an order while being matched
+ * 
  * @author Don Mendelson
  *
  */
-public class WorkingOrder implements NewOrderSingle {
+class WorkingOrder implements NewOrderSingle {
 
   private int cumQty = 0;
   private final Instant entryTime;

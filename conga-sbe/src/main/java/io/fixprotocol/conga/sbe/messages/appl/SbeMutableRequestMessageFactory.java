@@ -36,7 +36,8 @@ public class SbeMutableRequestMessageFactory implements MutableRequestMessageFac
 
 
   /**
-   * 
+   * Constructor
+   * @param bufferSupplier supplies buffers to encode messages
    */
   public SbeMutableRequestMessageFactory(BufferSupplier bufferSupplier) {
     this.bufferSupplier = bufferSupplier;

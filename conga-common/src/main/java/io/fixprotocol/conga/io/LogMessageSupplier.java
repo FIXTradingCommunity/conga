@@ -41,7 +41,7 @@ public class LogMessageSupplier implements Supplier<BufferSupply>, Closeable  {
    * 
    * @param path file path of log
    * @param bufferSupplier supplies buffers to populate
-   *
+   * @throws IOException if the log cannot be read
    */
   public LogMessageSupplier(Path path, BufferSupplier bufferSupplier) throws IOException {
     reader = new MessageLogReader(path);

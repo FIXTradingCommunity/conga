@@ -25,8 +25,6 @@ import java.util.Timer;
 import java.util.UUID;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
@@ -50,7 +48,6 @@ import io.fixprotocol.conga.messages.spi.MessageProvider;
 import io.fixprotocol.conga.session.Session;
 import io.fixprotocol.conga.session.SessionEvent;
 import io.fixprotocol.conga.session.SessionMessageConsumer;
-import io.fixprotocol.conga.session.SessionState;
 
 /**
  * Trader application sends orders and cancels to Exchange and receives executions
@@ -144,7 +141,7 @@ public class Trader implements AutoCloseable {
     /**
      * Set heartbeat interval 
      * @param heartbeatInterval keepalive interval in millis
-     * @return
+     * @return this Builder
      */
     @SuppressWarnings("unchecked")
     public B heartbeatInterval(long heartbeatInterval) {
@@ -384,7 +381,6 @@ public class Trader implements AutoCloseable {
    * 
    * @param message to send
    * @return sequence number of the sent message
-   * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws InterruptedException if the current thread is interrupted
    * @throws IOException if an I/O error occurs
    */
@@ -400,7 +396,6 @@ public class Trader implements AutoCloseable {
    * 
    * @param buffer message buffer
    * @return sequence number of the sent message
-   * @throws TimeoutException if the operation fails to complete in a timeout period
    * @throws InterruptedException if the current thread is interrupted
    * @throws IOException if an I/O error occurs
    * @throws IllegalStateException if this Session is not established

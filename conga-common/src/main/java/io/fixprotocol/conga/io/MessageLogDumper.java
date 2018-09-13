@@ -30,7 +30,10 @@ import java.nio.file.Path;
 public class MessageLogDumper {
 
   /**
-   * Usage: MessageLogDumper <log-path>
+   * Usage: 
+   * <pre>
+   * MessageLogDumper &lt;log-path&gt;
+   * </pre>
    * @param args the first argument is the log file path
    * @throws IOException if the log cannot be read
    */

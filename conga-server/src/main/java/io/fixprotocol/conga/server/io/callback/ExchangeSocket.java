@@ -29,6 +29,7 @@ public interface ExchangeSocket extends Closeable {
   /**
    * Send a message synchronously
    * @param buffer message buffer send
+   * @throws IOException if an IO error occurs
    */
   void send(ByteBuffer buffer) throws IOException;
 

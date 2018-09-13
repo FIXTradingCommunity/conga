@@ -157,7 +157,7 @@ public class ClientEndpoint implements AutoCloseable {
   /**
    * Opens a WebSocket to the server
    *
-   * @throws Throwable complete exceptionally with one of the following errors:
+   * @throws Exception complete exceptionally with one of the following errors:
    *         <ul>
    *         <li>{@link IOException} - if an I/O error occurs
    *         <li>{@link WebSocketHandshakeException} - if the opening handshake fails

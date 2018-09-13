@@ -38,6 +38,7 @@ public class JsonMutableMessage implements MutableMessage {
 
   /**
    * Constructor acquires a buffer
+   * @param bufferSupplier supplies a buffer to encode message
    */
   protected JsonMutableMessage(BufferSupplier bufferSupplier) {
     this.bufferSupply = bufferSupplier.get();

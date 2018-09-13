@@ -155,6 +155,7 @@ public class RingBufferSupplier implements BufferSupplier {
    * 
    * @param consumer handles queued buffers
    * @param capacity capacity of each buffer. Should be a multiple of cache line.
+   * @param order byte order of each buffer
    * @param queueDepth number of slots in the circular buffer. Must be a power of 2.
    * @param threadFactory creates a thread to dequeue buffers and invoke consumer
    */

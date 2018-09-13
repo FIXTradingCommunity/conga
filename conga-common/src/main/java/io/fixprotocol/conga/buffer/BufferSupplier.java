@@ -41,6 +41,8 @@ public interface BufferSupplier extends Supplier<BufferSupplier.BufferSupply> {
      * Transfers the bytes remaining in the source buffer into the acquired buffer.
      * 
      * @param src source byte array to copy
+     * @param offset offset of the first byte in the source byte array to copy
+     * @param length number of bytes to copy
      * @return the acquired buffer after the source bytes are copied into it or {@code null} if
      *         acquisition was unsuccessful
      * @throws BufferOverflowException If there is insufficient space in the acquired buffer for the

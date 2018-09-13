@@ -20,7 +20,7 @@
  * may be reused to wrap buffers for encoding or decoding rather than creating new objects
  * for every message.
  * <p>
- * See {@link https://github.com/FIXTradingCommunity/fix-simple-binary-encoding}
+ * @see <a href="https://github.com/FIXTradingCommunity/fix-simple-binary-encoding">FIX Simple Binary Encoding</a>
  * 
  * @author Don Mendelson
  *

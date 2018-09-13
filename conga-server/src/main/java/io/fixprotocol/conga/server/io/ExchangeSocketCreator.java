@@ -40,7 +40,9 @@ public class ExchangeSocketCreator implements WebSocketCreator {
   private final ServerSessions sessions;
 
   /**
-   * 
+   * Constructor
+   * @param sessions associates sessions to transports
+   * @param ringBuffer provides buffers to persist received messages
    */
   public ExchangeSocketCreator(ServerSessions sessions, RingBufferSupplier ringBuffer) {
     this.sessions = sessions;

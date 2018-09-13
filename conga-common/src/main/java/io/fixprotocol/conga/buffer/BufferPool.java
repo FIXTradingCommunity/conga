@@ -80,6 +80,7 @@ public class BufferPool implements BufferSupplier {
    * 
    * @param capacity buffer capacity
    * @param poolSize number of buffers in the pool
+   * @param order byte order of each buffer
    */
   public BufferPool(int capacity, int poolSize, ByteOrder order) {
     this.capacity = capacity;

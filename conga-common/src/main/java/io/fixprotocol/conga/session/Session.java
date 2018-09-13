@@ -321,6 +321,7 @@ public abstract class Session {
   /**
    * The underlying transport was connected
    * 
+   * @param transport the transport associated with this Session
    * @param principal party responsible for this Session
    * 
    * @return Returns {@code true} if the transport was previously unconnected, {@code false} if it
