@@ -1,13 +1,14 @@
 module conga.server {
-	requires conga.common;
-	requires commons.cli;
-    requires jetty.http;
-	requires jetty.server;
-	requires jetty.servlet;
-	requires jetty.util;
-	requires websocket.api;
-	requires websocket.servlet;
-	// expose callback methods
 	exports io.fixprotocol.conga.server.io.callback;
+
+	requires commons.cli;
+	requires conga.common;
+	requires javax.servlet.api;
+	requires org.eclipse.jetty.http;
+	requires org.eclipse.jetty.server;
+	requires org.eclipse.jetty.servlet;
+	requires org.eclipse.jetty.util;
+	requires org.eclipse.jetty.websocket.api;
+	requires org.eclipse.jetty.websocket.servlet;
     uses io.fixprotocol.conga.messages.spi.MessageProvider;
 }

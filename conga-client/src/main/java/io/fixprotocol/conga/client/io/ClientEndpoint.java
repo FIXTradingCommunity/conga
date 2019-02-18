@@ -33,11 +33,10 @@ import javax.net.ssl.SSLSessionContext;
 import io.fixprotocol.conga.buffer.BufferSupplier.BufferSupply;
 import io.fixprotocol.conga.buffer.RingBufferSupplier;
 
-import jdk.incubator.http.HttpClient;
-import jdk.incubator.http.HttpTimeoutException;
-import jdk.incubator.http.WebSocket;
-import jdk.incubator.http.WebSocket.MessagePart;
-import jdk.incubator.http.WebSocketHandshakeException;
+import java.net.http.HttpClient;
+import java.net.http.HttpTimeoutException;
+import java.net.http.WebSocket;
+import java.net.http.WebSocketHandshakeException;
 
 /**
  * WebSocket client endpoint
@@ -51,12 +50,11 @@ public class ClientEndpoint implements AutoCloseable {
 
   /**
    * 
-   * WebSocket implementation automatically responds to ping and close frames. This implementation
-   * only handles binary application messages.
+   * WebSocket implementation automatically responds to ping and close frames. 
    */
   private final WebSocket.Listener listener = new WebSocket.Listener() {
 
-    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer src, MessagePart part) {
+    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer src, boolean last) {
 
       if (src.hasRemaining()) {
         BufferSupply bufferSupply = ringBuffer.get();
@@ -69,7 +67,7 @@ public class ClientEndpoint implements AutoCloseable {
       return null;
     }
     
-    public CompletionStage<?> onText(WebSocket webSocket, CharSequence message, MessagePart part) {
+    public CompletionStage<?> onText(WebSocket webSocket, CharSequence message, boolean last) {
       if (message.length() > 0) {
         BufferSupply bufferSupply = ringBuffer.get();
         ByteBuffer buffer = bufferSupply.acquire();

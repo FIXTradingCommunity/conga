@@ -1,6 +1,7 @@
 module conga.client {
-	requires conga.common;
-	requires jdk.incubator.httpclient;
+
 	requires commons.cli;
+	requires conga.common;
+	requires java.net.http;
 	uses io.fixprotocol.conga.messages.spi.MessageProvider;
 }
