@@ -30,7 +30,7 @@ public class JsonMutableFinishedSending extends JsonMutableMessage {
   private long lastSeqNo;
   
   @SerializedName("@type")
-  private String type = "FinishedSending";
+  private final String type = "FinishedSending";
 
   /**
    * Constructor

@@ -72,7 +72,7 @@ public class Exchange implements Runnable, AutoCloseable {
     public static final String DEFAULT_ROOT_CONTEXT_PATH = "/";
     private static final String DEFAULT_OUTPUT_PATH = "log";
 
-    public String outputPath = DEFAULT_OUTPUT_PATH;
+    public final String outputPath = DEFAULT_OUTPUT_PATH;
     private String contextPath = DEFAULT_ROOT_CONTEXT_PATH;
     private String encoding;
     private long heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
@@ -344,9 +344,10 @@ public class Exchange implements Runnable, AutoCloseable {
     server.run();
   }
 
+  private final Object monitor = new Object();
+
   @Override
   public void run() {
-    final Object monitor = new Object();
     boolean running = true;
     while (running) {
       synchronized (monitor) {

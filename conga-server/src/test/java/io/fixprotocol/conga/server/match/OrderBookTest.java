@@ -16,22 +16,16 @@
 package io.fixprotocol.conga.server.match;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.SortedSet;
-
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import io.fixprotocol.conga.messages.appl.OrdType;
 import io.fixprotocol.conga.messages.appl.Side;
-import io.fixprotocol.conga.server.match.OrderBook;
-import io.fixprotocol.conga.server.match.WorkingOrder;
 
 /**
  * @author Don Mendelson
@@ -42,12 +36,12 @@ public class OrderBookTest {
   private OrderBook orderBook;
   private String userId;
   private String symbol;
-  private TestClock clock = new TestClock();
+  private final TestClock clock = new TestClock();
   
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     userId = "USER1";
     symbol = "SYM01";

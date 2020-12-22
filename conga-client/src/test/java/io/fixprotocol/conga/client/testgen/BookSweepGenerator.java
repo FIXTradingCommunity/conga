@@ -63,10 +63,9 @@ public class BookSweepGenerator extends RequestGenerator implements Runnable {
       for (int i = 1; i <= 10; i++) {
         price = price.add(tick);
         String clOrdId = genClOrdId();
-        int orderQty = i;
-        totalQty += orderQty;
+        totalQty += i;
         Side side = Side.Buy;
-        generateOrder(clOrdId, orderQty, ordType, price, side, symbol);
+        generateOrder(clOrdId, i, ordType, price, side, symbol);
       }
       generateOrder(genClOrdId(), totalQty, ordType, new BigDecimal("1.00"), Side.Sell, symbol);
     } catch (Exception e) {

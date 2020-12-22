@@ -15,15 +15,17 @@
 
 package io.fixprotocol.conga.buffer;
 
-import static org.junit.Assert.*;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.ListIterator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Before;
-import org.junit.Test;
 
 /**
  * @author Don Mendelson
@@ -36,7 +38,7 @@ public class BufferCacheTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     cache = new BufferCache();
   }
@@ -73,7 +75,7 @@ public class BufferCacheTest {
     ListIterator<ByteBuffer> iter = cache.listIterator();
     assertTrue(iter.hasNext());
     ByteBuffer dest = iter.next();
-    //String text = displayBuffer(dest);
+    // String text = displayBuffer(dest);
     assertEquals(src1, dest);
     dest = iter.next();
     assertEquals(src2, dest);
@@ -96,29 +98,29 @@ public class BufferCacheTest {
     ByteBuffer dest = cache.get(1);
     assertEquals(src3, dest);
   }
-  
+
   @Test
   public void wrap() {
-    for (int i=0; i < 20; i++) {
+    for (int i = 0; i < 20; i++) {
       ByteBuffer src = createBuffer(Integer.toString(i));
       assertTrue(cache.add(src));
     }
     assertEquals(20, cache.size());
-    int i=4;
+    int i = 4;
     ListIterator<ByteBuffer> iter = cache.listIterator(i);
     while (iter.hasNext()) {
       ByteBuffer buffer = iter.next();
       byte[] dst = new byte[buffer.remaining()];
-      buffer.get(dst );
+      buffer.get(dst);
       int number = Integer.parseInt(new String(dst));
       assertEquals(i, number);
       i++;
     }
   }
-  
+
   @Test
   public void subList() {
-    for (int i=0; i < 20; i++) {
+    for (int i = 0; i < 20; i++) {
       ByteBuffer src = createBuffer(Integer.toString(i));
       assertTrue(cache.add(src));
     }
@@ -126,23 +128,23 @@ public class BufferCacheTest {
     List<ByteBuffer> list = cache.subList(17, 19);
     assertEquals(2, list.size());
   }
-  
-  @Test(expected=IndexOutOfBoundsException.class)
+
+  @Test
   public void belowMin() {
-    for (int i=0; i < 20; i++) {
+    for (int i = 0; i < 20; i++) {
       ByteBuffer src = createBuffer(Integer.toString(i));
       assertTrue(cache.add(src));
     }
-    cache.get(3);
+    assertThrows(IndexOutOfBoundsException.class, () -> cache.get(3));
   }
-  
-  @Test(expected=IndexOutOfBoundsException.class)
+
+  @Test
   public void aboveMax() {
-    for (int i=0; i < 20; i++) {
+    for (int i = 0; i < 20; i++) {
       ByteBuffer src = createBuffer(Integer.toString(i));
       assertTrue(cache.add(src));
     }
-    cache.get(20);
+    assertThrows(IndexOutOfBoundsException.class, () -> cache.get(20));
   }
 
   private ByteBuffer createBuffer(String text) {
@@ -152,7 +154,7 @@ public class BufferCacheTest {
     src.flip();
     return src;
   }
-  
+
   private String displayBuffer(ByteBuffer buffer) {
     ByteBuffer dup = buffer.duplicate();
     byte[] dst = new byte[dup.remaining()];

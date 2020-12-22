@@ -29,7 +29,7 @@ public class JsonMutableSequence extends JsonMutableMessage {
   private long nextSeqNo;
   
   @SerializedName("@type")
-  private String type = "Sequence";
+  private final String type = "Sequence";
 
   /**
    * Constructor

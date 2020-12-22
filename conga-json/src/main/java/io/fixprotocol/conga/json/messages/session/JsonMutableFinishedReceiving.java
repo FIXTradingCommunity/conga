@@ -29,7 +29,7 @@ public class JsonMutableFinishedReceiving extends JsonMutableMessage {
   private byte[] sessionId;
   
   @SerializedName("@type")
-  private String type = "FinishedReceiving";
+  private final String type = "FinishedReceiving";
   
   /**
    * Constructor

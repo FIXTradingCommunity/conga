@@ -70,7 +70,7 @@ public class BinaryExchangeSocket implements ExchangeSocket {
   }
 
   @OnWebSocketMessage
-  public void onMessage(Session session, byte src[], int offset, int length) {
+  public void onMessage(Session session, byte[] src, int offset, int length) {
     BufferSupply supply = ringBuffer.get();
     if (null != supply.acquireAndCopy(src, offset, length)) {
       supply.setSource(principal);

@@ -36,7 +36,7 @@ public class JsonOrderCancelRequest implements OrderCancelRequest, Message {
   private Instant transactTime;
   
   @SerializedName("@type")
-  private String type = "OrderCancelRequest";
+  private final String type = "OrderCancelRequest";
 
   @Override
   public String getClOrdId() {

@@ -30,7 +30,7 @@ public class JsonMutableNotApplied extends JsonMutableMessage {
   private long count;
   
   @SerializedName("@type")
-  private String type = "NotApplied";
+  private final String type = "NotApplied";
 
   /**
    * Constructor

@@ -15,36 +15,29 @@
 
 package io.fixprotocol.conga.sbe.messages.appl;
 
-
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Iterator;
-
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
 import io.fixprotocol.conga.messages.appl.CxlRejReason;
 import io.fixprotocol.conga.messages.appl.ExecType;
 import io.fixprotocol.conga.messages.appl.ExecutionReport;
+import io.fixprotocol.conga.messages.appl.ExecutionReport.Fill;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MessageException;
 import io.fixprotocol.conga.messages.appl.MutableExecutionReport;
+import io.fixprotocol.conga.messages.appl.MutableExecutionReport.MutableFill;
 import io.fixprotocol.conga.messages.appl.MutableOrderCancelReject;
 import io.fixprotocol.conga.messages.appl.OrdStatus;
 import io.fixprotocol.conga.messages.appl.OrderCancelReject;
 import io.fixprotocol.conga.messages.appl.Side;
-import io.fixprotocol.conga.messages.appl.ExecutionReport.Fill;
-import io.fixprotocol.conga.messages.appl.MutableExecutionReport.MutableFill;
-import io.fixprotocol.conga.sbe.messages.appl.SbeMutableResponseMessageFactory;
-import io.fixprotocol.conga.sbe.messages.appl.SbeResponseMessageFactory;
 
 /**
  * @author Don Mendelson
@@ -59,7 +52,7 @@ public class SbeResponseTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     buffer = ByteBuffer.allocate(1024);
     SingleBufferSupplier bufferSupplier = new SingleBufferSupplier(buffer);

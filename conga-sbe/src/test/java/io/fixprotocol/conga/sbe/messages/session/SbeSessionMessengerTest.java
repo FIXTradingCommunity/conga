@@ -15,14 +15,14 @@
 
 package io.fixprotocol.conga.sbe.messages.session;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import io.fixprotocol.conga.messages.appl.MutableMessage;
 import io.fixprotocol.conga.session.FlowType;
@@ -41,7 +41,7 @@ public class SbeSessionMessengerTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     client = new SbeSessionMessenger();
     client.init(true);

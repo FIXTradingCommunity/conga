@@ -15,18 +15,13 @@
 
 package io.fixprotocol.conga.sbe.messages.appl;
 
-
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
-
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MessageException;
@@ -36,8 +31,6 @@ import io.fixprotocol.conga.messages.appl.NewOrderSingle;
 import io.fixprotocol.conga.messages.appl.OrdType;
 import io.fixprotocol.conga.messages.appl.OrderCancelRequest;
 import io.fixprotocol.conga.messages.appl.Side;
-import io.fixprotocol.conga.sbe.messages.appl.SbeMutableRequestMessageFactory;
-import io.fixprotocol.conga.sbe.messages.appl.SbeRequestMessageFactory;
 
 /**
  * @author Don Mendelson
@@ -52,7 +45,7 @@ public class SbeRequestTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     buffer = ByteBuffer.allocate(1024);
     SingleBufferSupplier bufferSupplier = new SingleBufferSupplier(buffer);

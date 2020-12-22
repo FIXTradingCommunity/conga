@@ -34,7 +34,7 @@ public class JsonMutableEstablish extends JsonMutableMessage {
   private long timestamp;
 
   @SerializedName("@type")
-  private String type = "Establish";
+  private final String type = "Establish";
 
   /**
    * Constructor

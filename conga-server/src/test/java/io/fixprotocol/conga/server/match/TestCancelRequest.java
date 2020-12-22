@@ -26,10 +26,10 @@ import io.fixprotocol.conga.messages.appl.Side;
  */
 public class TestCancelRequest implements OrderCancelRequest {
 
-  private String clOrdId;
-  private Side side;
-  private String symbol;
-  private Instant transactTime;
+  private final String clOrdId;
+  private final Side side;
+  private final String symbol;
+  private final Instant transactTime;
 
   public TestCancelRequest(String clOrdId, String symbol, Side side, Instant transactTime) {
     super();

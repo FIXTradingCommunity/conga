@@ -33,7 +33,7 @@ public class JsonMutableEstablishmentAck extends JsonMutableMessage {
   private long timestamp;
 
   @SerializedName("@type")
-  private String type = "EstablishmentAck";
+  private final String type = "EstablishmentAck";
 
   /**
    * Constructor

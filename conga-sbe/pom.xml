@@ -5,13 +5,13 @@
 	<parent>
 		<groupId>io.fixprotocol.conga</groupId>
 		<artifactId>conga-parent</artifactId>
-		<version>1.1.0-SNAPSHOT</version>
+		<version>1.1.1-SNAPSHOT</version>
 	</parent>
 	<artifactId>conga-sbe</artifactId>
 	<name>${project.groupId}:${project.artifactId}</name>
 
 	<properties>
-		<real-logic.version>1.12.2</real-logic.version>
+		<real-logic.version>1.20.3</real-logic.version>
 	</properties>
 
 	<dependencies>

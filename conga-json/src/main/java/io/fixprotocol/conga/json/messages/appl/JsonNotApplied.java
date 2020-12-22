@@ -31,7 +31,7 @@ public class JsonNotApplied implements NotApplied, Message {
   private transient String source;
 
   @SerializedName("@type")
-  private String type = "NotApplied";
+  private final String type = "NotApplied";
 
   @Override
   public long getCount() {

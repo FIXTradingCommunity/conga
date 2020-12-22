@@ -33,7 +33,7 @@ public class JsonMutableNegotiate extends JsonMutableMessage {
   private long timestamp;
 
   @SerializedName("@type")
-  private String type = "Negotiate";
+  private final String type = "Negotiate";
 
 
   /**

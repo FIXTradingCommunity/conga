@@ -67,7 +67,7 @@ import io.fixprotocol.conga.session.SessionSequenceAttributes;
 public class SbeSessionMessenger implements SessionMessenger {
   
   // wraps dedicated buffers for SBE session messages
-  private class SbeMutableMessage implements MutableMessage {
+  private static class SbeMutableMessage implements MutableMessage {
     private final ByteBuffer buffer;
     private String source;
     

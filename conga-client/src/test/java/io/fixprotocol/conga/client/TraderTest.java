@@ -15,19 +15,18 @@
 
 package io.fixprotocol.conga.client;
 
-import static org.junit.Assert.*;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Consumer;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import io.fixprotocol.conga.messages.appl.ApplicationMessageConsumer;
 import io.fixprotocol.conga.messages.appl.Message;
 import io.fixprotocol.conga.messages.appl.MutableNewOrderSingle;
@@ -41,10 +40,10 @@ import io.fixprotocol.conga.session.SessionEvent;
  * @author Don Mendelson
  *
  */
-@Ignore
+@Disabled
 public class TraderTest {
 
-  private class TestErrorHandler implements Consumer<Throwable> {
+  private static class TestErrorHandler implements Consumer<Throwable> {
 
     @Override
     public void accept(Throwable error) {
@@ -106,9 +105,9 @@ public class TraderTest {
       }
     }
 
-  };
+  }
 
-  private class TestMessageListener implements ApplicationMessageConsumer {
+  private static class TestMessageListener implements ApplicationMessageConsumer {
 
     private int count = 0;
 
@@ -127,7 +126,7 @@ public class TraderTest {
     }
 
 
-  };
+  }
 
 
   private final TestErrorHandler errorHandler = new TestErrorHandler();
@@ -181,7 +180,7 @@ public class TraderTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     listener.reset();
 
@@ -198,7 +197,7 @@ public class TraderTest {
   /**
    * @throws java.lang.Exception
    */
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (trader != null) {
       trader.close();

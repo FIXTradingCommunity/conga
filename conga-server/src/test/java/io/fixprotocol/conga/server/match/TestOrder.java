@@ -24,14 +24,14 @@ import io.fixprotocol.conga.messages.appl.Side;
 
 class TestOrder implements NewOrderSingle {
 
-  private String clOrdId;
-  private int orderQty;
-  private OrdType ordType;
-  private BigDecimal price;
-  private Side side;
-  private String symbol;
+  private final String clOrdId;
+  private final int orderQty;
+  private final OrdType ordType;
+  private final BigDecimal price;
+  private final Side side;
+  private final String symbol;
 
-  private Instant transactTime = Instant.now();
+  private final Instant transactTime = Instant.now();
 
   public TestOrder(String clOrdId, String symbol, Side side, int orderQty, OrdType ordType,
       BigDecimal price) {

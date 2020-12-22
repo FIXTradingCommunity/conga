@@ -90,15 +90,13 @@ public class SbeRequestMessageFactory implements RequestMessageFactory {
             throw new MessageException("Unknown message template");
         }
       case NotAppliedDecoder.SCHEMA_ID:
-        switch (templateId) {
-          case NotAppliedDecoder.TEMPLATE_ID:
-            var notApplied = getNotApplied();
-            notApplied.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
-                schemaVersion);
-            return notApplied;
-          default:
-            throw new MessageException("Unknown message template");
+        if (templateId == NotAppliedDecoder.TEMPLATE_ID) {
+          var notApplied = getNotApplied();
+          notApplied.wrap(buffer, offset + messageHeaderDecoder.encodedLength(), blockLength,
+                  schemaVersion);
+          return notApplied;
         }
+        throw new MessageException("Unknown message template");
       default:
         throw new MessageException("Unknown message schema");
     }

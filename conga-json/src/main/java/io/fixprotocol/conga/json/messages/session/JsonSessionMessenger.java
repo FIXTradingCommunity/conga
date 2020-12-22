@@ -43,8 +43,7 @@ import io.fixprotocol.conga.session.SessionSequenceAttributes;
 public class JsonSessionMessenger implements SessionMessenger {
   private final static Gson gson = JsonTranslatorFactory.createTranslator();
   private final BufferSupplier bufferSupplier;
-  private final JsonParser parser = new JsonParser();
-  
+
   public JsonSessionMessenger() {
      this(new ThreadLocalBufferSupplier());
   }
@@ -210,7 +209,7 @@ public class JsonSessionMessenger implements SessionMessenger {
   public SessionMessageType getMessageType(ByteBuffer buffer) throws Exception {
     String string = bufferToString(buffer);
     try {
-      final JsonObject object = parser.parse(string).getAsJsonObject();
+      final JsonObject object = JsonParser.parseString(string).getAsJsonObject();
       final String type = object.get("@type").getAsString();
       switch (type) {
         case "Establish":

@@ -15,7 +15,6 @@
 
 package io.fixprotocol.conga.json.messages.appl;
 
-import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,10 +27,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import io.fixprotocol.conga.buffer.BufferSupplier;
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
@@ -54,7 +54,7 @@ public class JsonRequestMessageTest {
   private MessageLogWriter writer;
   private static final Path path = FileSystems.getDefault().getPath("target/test", "json.log");
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpOnce() {
     new File("target/test").mkdirs();
     
@@ -69,7 +69,7 @@ public class JsonRequestMessageTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     final ByteBuffer buffer = ByteBuffer.allocate(1024);
     buffer.order(ByteOrder.nativeOrder());
@@ -80,7 +80,7 @@ public class JsonRequestMessageTest {
     writer.open();
   }
   
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (writer != null) {
       writer.close();

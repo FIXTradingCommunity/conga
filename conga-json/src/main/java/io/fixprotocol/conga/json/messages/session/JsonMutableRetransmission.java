@@ -33,7 +33,7 @@ public class JsonMutableRetransmission extends JsonMutableMessage {
   private byte[] sessionId;
 
   @SerializedName("@type")
-  private String type = "Retransmission";
+  private final String type = "Retransmission";
 
   /**
    * Constructor

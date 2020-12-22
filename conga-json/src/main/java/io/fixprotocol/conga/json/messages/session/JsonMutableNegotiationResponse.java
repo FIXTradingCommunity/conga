@@ -33,7 +33,7 @@ public class JsonMutableNegotiationResponse extends JsonMutableMessage {
   private byte[] sessionId;
 
   @SerializedName("@type")
-  private String type = "NegotiationResponse";
+  private final String type = "NegotiationResponse";
 
   /**
    * Constructor

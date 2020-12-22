@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class MessageLogWriter implements Closeable {
 
-  private class WriteFuture extends CompletableFuture<Long> {
+  private static class WriteFuture extends CompletableFuture<Long> {
 
     final CompletionHandler<Integer, ByteBuffer> bodyCompletion = new CompletionHandler<>() {
 

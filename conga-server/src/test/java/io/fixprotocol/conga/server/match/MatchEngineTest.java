@@ -15,21 +15,18 @@
 
 package io.fixprotocol.conga.server.match;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
-
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import io.fixprotocol.conga.messages.appl.CxlRejReason;
 import io.fixprotocol.conga.messages.appl.ExecType;
 import io.fixprotocol.conga.messages.appl.Message;
@@ -41,8 +38,6 @@ import io.fixprotocol.conga.messages.appl.OrdStatus;
 import io.fixprotocol.conga.messages.appl.OrdType;
 import io.fixprotocol.conga.messages.appl.OrderCancelRequest;
 import io.fixprotocol.conga.messages.appl.Side;
-import io.fixprotocol.conga.server.match.MatchEngine;
-import io.fixprotocol.conga.server.match.OrderBook;
 
 /**
  * @author Don Mendelson
@@ -114,7 +109,7 @@ public class MatchEngineTest {
   }
   static class TestExecution implements MutableExecutionReport {
 
-    class TestFill implements MutableFill {
+    static class TestFill implements MutableFill {
 
       BigDecimal fillPx;
       int fillQty;
@@ -131,7 +126,7 @@ public class MatchEngineTest {
     }
 
     private int fillIndex = -1;
-    private ArrayList<TestFill> fills = new ArrayList<>();
+    private final ArrayList<TestFill> fills = new ArrayList<>();
     
     String clOrdId;
     int cumQty;
@@ -242,7 +237,7 @@ public class MatchEngineTest {
 
   private static MutableResponseMessageFactory messageFactory;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpOnce() {
     messageFactory = new MutableResponseMessageFactory() {
 
@@ -260,8 +255,8 @@ public class MatchEngineTest {
   }
 
   private MatchEngine engine;
-  private String symbol = "SYM1";
-  private String userId = "USER1";
+  private final String symbol = "SYM1";
+  private final String userId = "USER1";
 
   @Test
   public void cancelOrderUnknown() {
@@ -455,7 +450,7 @@ public class MatchEngineTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     engine = new MatchEngine(messageFactory, new TestClock());
   }

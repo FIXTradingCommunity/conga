@@ -48,7 +48,7 @@ public interface BufferSupplier extends Supplier<BufferSupplier.BufferSupply> {
      * @throws BufferOverflowException If there is insufficient space in the acquired buffer for the
      *         source bytes
      */
-    default ByteBuffer acquireAndCopy(byte src[], int offset, int length) {
+    default ByteBuffer acquireAndCopy(byte[] src, int offset, int length) {
       ByteBuffer dest = acquire();
       if (null != dest) {
         dest.clear();

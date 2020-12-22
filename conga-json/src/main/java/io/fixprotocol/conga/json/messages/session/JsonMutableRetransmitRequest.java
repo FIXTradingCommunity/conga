@@ -33,7 +33,7 @@ public class JsonMutableRetransmitRequest extends JsonMutableMessage {
   private long timestamp;
 
   @SerializedName("@type")
-  private String type = "RetransmitRequest";
+  private final String type = "RetransmitRequest";
 
   /**
    * Constructor

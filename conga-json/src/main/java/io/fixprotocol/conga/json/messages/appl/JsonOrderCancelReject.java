@@ -39,7 +39,7 @@ public class JsonOrderCancelReject implements OrderCancelReject, Message {
   private Instant transactTime;
   
   @SerializedName("@type")
-  private String type = "OrderCancelReject";
+  private final String type = "OrderCancelReject";
 
   @Override
   public String getClOrdId() {

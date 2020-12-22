@@ -42,7 +42,7 @@ public class JsonNewOrderSingle implements NewOrderSingle, Message {
   
   
   @SerializedName("@type")
-  private String type = "OrderCancelRequest";
+  private final String type = "OrderCancelRequest";
 
   @Override
   public String getClOrdId() {

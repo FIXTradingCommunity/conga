@@ -33,13 +33,12 @@ import io.fixprotocol.conga.messages.appl.ResponseMessageFactory;
 public class JsonResponseMessageFactory implements ResponseMessageFactory {
 
   private final static Gson gson = JsonTranslatorFactory.createTranslator();
-  private final JsonParser parser = new JsonParser();
   private ByteBuffer buffer;
 
   public Message wrap(ByteBuffer buffer) throws MessageException {
     this.buffer = buffer;
     String string = bufferToString(this.buffer);
-    JsonObject object = parser.parse(string).getAsJsonObject();
+    JsonObject object = JsonParser.parseString(string).getAsJsonObject();
     String type = object.get("@type").getAsString();
     switch (type) {
       case "OrderCancelReject":

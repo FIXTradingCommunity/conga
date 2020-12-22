@@ -15,16 +15,15 @@
 
 package io.fixprotocol.conga.json.messages.appl;
 
-import static org.junit.Assert.assertEquals;
-
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.Instant;
 import java.util.Iterator;
 
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import io.fixprotocol.conga.buffer.SingleBufferSupplier;
 import io.fixprotocol.conga.messages.appl.CxlRejReason;
@@ -51,7 +50,7 @@ public class JsonResponseMessageTest {
   /**
    * @throws java.lang.Exception
    */
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     final ByteBuffer buffer = ByteBuffer.allocate(1024);
     buffer.order(ByteOrder.nativeOrder());
